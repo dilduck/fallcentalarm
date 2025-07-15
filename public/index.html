@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>폴센트 핫딜 감시 - 웹 버전</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        .alert-item {
+            animation: slideInRight 0.5s ease-out;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .blink {
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+        
+        .product-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .super-deal {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        }
+        
+        .electronics-deal {
+            background: linear-gradient(135deg, #4834d4 0%, #686de0 100%);
+        }
+        
+        .best-deal {
+            background: linear-gradient(135deg, #00d2d3 0%, #54a0ff 100%);
+        }
+        
+        .keyword-deal {
+            background: linear-gradient(135deg, #ff9ff3 0%, #f368e0 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- 헤더 -->
+    <header class="gradient-bg shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-6">
+                <div class="flex items-center">
+                    <i class="fas fa-shopping-cart text-white text-3xl mr-3"></i>
+                    <h1 class="text-2xl font-bold text-white">폴센트 핫딜 감시</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="refreshBtn" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+                        <i class="fas fa-sync-alt mr-2"></i>지금 확인
+                    </button>
+                    <button id="settingsBtn" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+                        <i class="fas fa-cog mr-2"></i>설정
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 상태 바 -->
+    <div class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-6">
+                    <div class="flex items-center">
+                        <span id="statusIndicator" class="w-3 h-3 bg-gray-400 rounded-full mr-2"></span>
+                        <span id="statusText" class="text-gray-600">대기 중</span>
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        <span>마지막 확인: </span>
+                        <span id="lastUpdate">-</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <div class="text-sm">
+                        <span class="text-gray-500">저장된 상품: </span>
+                        <span id="viewedCount" class="font-semibold">0</span>개
+                    </div>
+                    <div class="text-sm">
+                        <span class="text-gray-500">차단 상품: </span>
+                        <span id="bannedCount" class="font-semibold">0</span>개
+                    </div>
+                    <div class="text-sm">
+                        <span class="text-gray-500">현재 상품: </span>
+                        <span id="currentCount" class="font-semibold">0</span>개
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 메인 컨텐츠 -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <!-- 알림 패널 (우측) -->
+            <div class="lg:col-span-1 order-1 lg:order-2">
+                <div class="sticky top-8 space-y-4">
+                    <!-- 초특가 알림 -->
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                        <div class="super-deal p-3">
+                            <h3 class="text-white font-bold flex items-center">
+                                <i class="fas fa-fire mr-2"></i>초특가 알림
+                            </h3>
+                        </div>
+                        <div id="superAlerts" class="p-4 min-h-32">
+                            <p class="text-gray-500 text-center">알림 없음</p>
+                        </div>
+                    </div>
+
+                    <!-- 가전/디지털 알림 -->
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                        <div class="electronics-deal p-3">
+                            <h3 class="text-white font-bold flex items-center">
+                                <i class="fas fa-laptop mr-2"></i>가전/디지털
+                            </h3>
+                        </div>
+                        <div id="electronicsAlerts" class="p-4 min-h-32">
+                            <p class="text-gray-500 text-center">알림 없음</p>
+                        </div>
+                    </div>
+
+                    <!-- 베스트 딜 알림 -->
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                        <div class="best-deal p-3">
+                            <h3 class="text-white font-bold flex items-center">
+                                <i class="fas fa-star mr-2"></i>베스트 딜
+                            </h3>
+                        </div>
+                        <div id="bestAlerts" class="p-4 min-h-32">
+                            <p class="text-gray-500 text-center">알림 없음</p>
+                        </div>
+                    </div>
+
+                    <!-- 키워드 알림 -->
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                        <div class="keyword-deal p-3">
+                            <h3 class="text-white font-bold flex items-center">
+                                <i class="fas fa-search mr-2"></i>키워드 매칭
+                            </h3>
+                        </div>
+                        <div id="keywordAlerts" class="p-4 min-h-32">
+                            <p class="text-gray-500 text-center">알림 없음</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 상품 목록 (좌측) -->
+            <div class="lg:col-span-3 order-2 lg:order-1">
+                <div class="bg-white rounded-lg shadow-lg">
+                    <div class="p-6 border-b">
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-xl font-bold text-gray-800">현재 상품 목록</h2>
+                            <div class="flex items-center space-x-4">
+                                <select id="sortSelect" class="border rounded-lg px-3 py-2">
+                                    <option value="discount-desc">할인율 높은순</option>
+                                    <option value="discount-asc">할인율 낮은순</option>
+                                    <option value="price-asc">가격 낮은순</option>
+                                    <option value="price-desc">가격 높은순</option>
+                                </select>
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="rocketFilter" class="mr-2">
+                                    <label for="rocketFilter" class="text-sm">로켓배송만</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="productsList" class="p-6">
+                        <div class="text-center py-12">
+                            <i class="fas fa-shopping-cart text-gray-300 text-6xl mb-4"></i>
+                            <p class="text-gray-500">상품을 불러오는 중...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 설정 모달 -->
+    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-y-auto">
+                <div class="p-6 border-b">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-bold">설정</h3>
+                        <button id="closeSettingsBtn" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <div class="space-y-6">
+                        <!-- 일반 설정 -->
+                        <div>
+                            <h4 class="font-semibold mb-3">일반 설정</h4>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-sm">자동 새로고침</label>
+                                    <input type="checkbox" id="autoRefreshSetting" class="toggle">
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <label class="text-sm">새로고침 간격 (초)</label>
+                                    <select id="refreshIntervalSetting" class="border rounded px-3 py-1">
+                                        <option value="30">30초</option>
+                                        <option value="60">1분</option>
+                                        <option value="300">5분</option>
+                                        <option value="600">10분</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <label class="text-sm">로켓배송만 표시</label>
+                                    <input type="checkbox" id="rocketOnlySetting" class="toggle">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 알림 설정 -->
+                        <div>
+                            <h4 class="font-semibold mb-3">알림 설정</h4>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-sm">브라우저 알림</label>
+                                    <input type="checkbox" id="browserNotificationsSetting" class="toggle">
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <label class="text-sm">알림 지속 시간 (초)</label>
+                                    <select id="notificationDurationSetting" class="border rounded px-3 py-1">
+                                        <option value="3000">3초</option>
+                                        <option value="5000">5초</option>
+                                        <option value="10000">10초</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 소리 반복재생 설정 -->
+                        <div>
+                            <h4 class="font-semibold mb-3">소리 반복재생 설정</h4>
+                            <div class="space-y-4">
+                                <!-- 초특가 알림 -->
+                                <div class="border rounded p-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <label class="text-sm font-medium text-red-600">🔥 초특가 알림</label>
+                                        <input type="checkbox" id="superSoundRepeatEnabled" class="toggle">
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-xs text-gray-500">반복 횟수</label>
+                                            <select id="superSoundRepeatCount" class="w-full border rounded px-2 py-1 text-sm">
+                                                <option value="1">1회</option>
+                                                <option value="2">2회</option>
+                                                <option value="3">3회</option>
+                                                <option value="4">4회</option>
+                                                <option value="5">5회</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="text-xs text-gray-500">간격 (초)</label>
+                                            <select id="superSoundRepeatInterval" class="w-full border rounded px-2 py-1 text-sm">
+                                                <option value="500">0.5초</option>
+                                                <option value="1000">1초</option>
+                                                <option value="1500">1.5초</option>
+                                                <option value="2000">2초</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 가전/디지털 알림 -->
+                                <div class="border rounded p-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <label class="text-sm font-medium text-purple-600">🔧 가전/디지털 알림</label>
+                                        <input type="checkbox" id="electronicsSoundRepeatEnabled" class="toggle">
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-xs text-gray-500">반복 횟수</label>
+                                            <select id="electronicsSoundRepeatCount" class="w-full border rounded px-2 py-1 text-sm">
+                                                <option value="1">1회</option>
+                                                <option value="2">2회</option>
+                                                <option value="3">3회</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="text-xs text-gray-500">간격 (초)</label>
+                                            <select id="electronicsSoundRepeatInterval" class="w-full border rounded px-2 py-1 text-sm">
+                                                <option value="500">0.5초</option>
+                                                <option value="800">0.8초</option>
+                                                <option value="1000">1초</option>
+                                                <option value="1500">1.5초</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 키워드 매칭 알림 -->
+                                <div class="border rounded p-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <label class="text-sm font-medium text-pink-600">🔍 키워드 매칭 알림</label>
+                                        <input type="checkbox" id="keywordSoundRepeatEnabled" class="toggle">
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-xs text-gray-500">반복 횟수</label>
+                                            <select id="keywordSoundRepeatCount" class="w-full border rounded px-2 py-1 text-sm">
+                                                <option value="1">1회</option>
+                                                <option value="2">2회</option>
+                                                <option value="3">3회</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="text-xs text-gray-500">간격 (초)</label>
+                                            <select id="keywordSoundRepeatInterval" class="w-full border rounded px-2 py-1 text-sm">
+                                                <option value="500">0.5초</option>
+                                                <option value="900">0.9초</option>
+                                                <option value="1000">1초</option>
+                                                <option value="1500">1.5초</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 베스트 딜 알림 -->
+                                <div class="border rounded p-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <label class="text-sm font-medium text-blue-600">⭐ 베스트 딜 알림</label>
+                                        <input type="checkbox" id="bestSoundRepeatEnabled" class="toggle">
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-xs text-gray-500">반복 횟수</label>
+                                            <select id="bestSoundRepeatCount" class="w-full border rounded px-2 py-1 text-sm">
+                                                <option value="1">1회</option>
+                                                <option value="2">2회</option>
+                                                <option value="3">3회</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="text-xs text-gray-500">간격 (초)</label>
+                                            <select id="bestSoundRepeatInterval" class="w-full border rounded px-2 py-1 text-sm">
+                                                <option value="500">0.5초</option>
+                                                <option value="1000">1초</option>
+                                                <option value="1500">1.5초</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 데이터 관리 -->
+                        <div>
+                            <h4 class="font-semibold mb-3">데이터 관리</h4>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-sm font-medium">확인된 상품 기록 초기화</label>
+                                        <p class="text-xs text-gray-500">모든 '확인됨' 상태를 초기화합니다</p>
+                                    </div>
+                                    <button id="clearViewedBtn" class="px-3 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-600">
+                                        초기화
+                                    </button>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-sm font-medium">차단 상품 목록 초기화</label>
+                                        <p class="text-xs text-gray-500">모든 차단된 상품을 해제합니다</p>
+                                    </div>
+                                    <button id="clearBannedBtn" class="px-3 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600">
+                                        초기화
+                                    </button>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-sm font-medium text-red-600">전체 데이터 초기화</label>
+                                        <p class="text-xs text-gray-500">모든 데이터를 삭제하고 재크롤링합니다</p>
+                                    </div>
+                                    <button id="resetAllDataBtn" class="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">
+                                        전체 초기화
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6 border-t bg-gray-50">
+                    <div class="flex justify-end space-x-3">
+                        <button id="resetSettingsBtn" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                            초기화
+                        </button>
+                        <button id="saveSettingsBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            저장
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 토스트 알림 -->
+    <div id="toastContainer" class="fixed top-4 right-4 space-y-2 z-40"></div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html> 

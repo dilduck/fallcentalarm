@@ -1,0 +1,484 @@
+' Form1.vb의 SafeClearControlsAsync 메서드 개선
+' 컬렉션 수정 중 발생하는 오류를 완전히 해결
+
+Private Async Function SafeClearControlsAsync() As Task
+    Try
+        ' UI 스레드에서 실행 보장
+        If flowLayoutPanel.InvokeRequired Then
+            Dim tcs As New TaskCompletionSource(Of Boolean)()
+            flowLayoutPanel.BeginInvoke(Sub()
+                Try
+                    SafeClearControlsAsync().ContinueWith(Sub(t)
+                        If t.IsFaulted Then
+                            tcs.SetException(t.Exception)
+                        Else
+                            tcs.SetResult(True)
+                        End If
+                    End Sub)
+                Catch ex As Exception
+                    tcs.SetException(ex)
+                End Try
+            End Sub)
+            Await tcs.Task
+            Return
+        End If
+
+        ' 타이머 중지
+        If addTimer IsNot Nothing Then
+            addTimer.Stop()
+            RemoveHandler addTimer.Tick, AddressOf addTimer_Tick
+            addTimer.Dispose()
+            addTimer = Nothing
+        End If
+
+        ' 컨트롤 목록을 배열로 복사 (더 안전함)
+        Dim controlsArray() As Control = Nothing
+        
+        ' SuspendLayout으로 레이아웃 업데이트 중지
+        flowLayoutPanel.SuspendLayout()
+        Try
+            ' 컨트롤 배열 생성
+            SyncLock flowLayoutPanel
+                If flowLayoutPanel.Controls.Count > 0 Then
+                    ReDim controlsArray(flowLayoutPanel.Controls.Count - 1)
+                    flowLayoutPanel.Controls.CopyTo(controlsArray, 0)
+                    flowLayoutPanel.Controls.Clear()
+                End If
+            End SyncLock
+
+            ' 컨트롤이 있었다면 백그라운드에서 정리
+            If controlsArray IsNot Nothing AndAlso controlsArray.Length > 0 Then
+                Await Task.Run(Sub()
+                    For Each ctrl In controlsArray
+                        If ctrl Is Nothing Then Continue For
+                        
+                        Try
+                            ' ProductItemControl인 경우 이벤트 핸들러 제거
+                            If TypeOf ctrl Is ProductItemControl Then
+                                Me.BeginInvoke(Sub()
+                                    Try
+                                        If Not ctrl.IsDisposed Then
+                                            Dim productCtrl = DirectCast(ctrl, ProductItemControl)
+                                            RemoveHandler productCtrl.ViewProductClicked, AddressOf ProductControl_ViewClicked
+                                            RemoveHandler productCtrl.BanProductClicked, AddressOf ProductControl_BanClicked
+                                        End If
+                                    Catch ex As Exception
+                                        ' 이벤트 핸들러 제거 실패는 무시
+                                    End Try
+                                End Sub)
+                                
+                                ' 짧은 대기로 UI 스레드 부하 감소
+                                Thread.Sleep(1)
+                            End If
+                            
+                            ' 컨트롤 Dispose
+                            If Not ctrl.IsDisposed Then
+                                ctrl.Dispose()
+                            End If
+                            
+                        Catch ex As Exception
+                            Console.WriteLine($"컨트롤 정리 중 오류: {ex.Message}")
+                        End Try
+                    Next
+                End Sub)
+            End If
+
+        Finally
+            ' 레이아웃 재개
+            If Not flowLayoutPanel.IsDisposed Then
+                flowLayoutPanel.ResumeLayout(True)
+            End If
+        End Try
+
+    Catch ex As Exception
+        Console.WriteLine($"SafeClearControlsAsync 오류: {ex.Message}")
+        Console.WriteLine(ex.StackTrace)
+    End Try
+End Function
+
+' AddProductControlsAsync 메서드 개선
+Private Async Function AddProductControlsAsync(products As List(Of Product)) As Task
+    Try
+        ' 입력 검증
+        If products Is Nothing OrElse products.Count = 0 Then Return
+        If Me.IsDisposed OrElse flowLayoutPanel.IsDisposed Then Return
+        
+        ' 안전한 복사본 생성
+        Dim productsCopy = products.Where(Function(p) p IsNot Nothing).ToArray()
+        If productsCopy.Length = 0 Then Return
+
+        ' 배치 처리 설정
+        Const BATCH_SIZE As Integer = 5
+        Dim totalBatches As Integer = CInt(Math.Ceiling(productsCopy.Length / BATCH_SIZE))
+        
+        ' 레이아웃 중지
+        flowLayoutPanel.SuspendLayout()
+        Try
+            For batchIndex As Integer = 0 To totalBatches - 1
+                ' 폼 상태 확인
+                If Me.IsDisposed OrElse flowLayoutPanel.IsDisposed Then Exit For
+                
+                ' 현재 배치 범위 계산
+                Dim startIndex = batchIndex * BATCH_SIZE
+                Dim endIndex = Math.Min(startIndex + BATCH_SIZE - 1, productsCopy.Length - 1)
+                
+                ' 배치 컨트롤 생성
+                Dim batchControls As New List(Of ProductItemControl)()
+                
+                For i As Integer = startIndex To endIndex
+                    Dim product = productsCopy(i)
+                    If product IsNot Nothing Then
+                        Dim ctrl = CreateProductControl(product)
+                        If ctrl IsNot Nothing Then
+                            batchControls.Add(ctrl)
+                        End If
+                    End If
+                Next
+                
+                ' UI 스레드에서 컨트롤 추가
+                If batchControls.Count > 0 Then
+                    Await Task.Run(Sub()
+                        Me.Invoke(Sub()
+                            If Not Me.IsDisposed AndAlso Not flowLayoutPanel.IsDisposed Then
+                                flowLayoutPanel.Controls.AddRange(batchControls.ToArray())
+                            End If
+                        End Sub)
+                    End Sub)
+                    
+                    ' UI 응답성 유지
+                    Application.DoEvents()
+                    
+                    ' 다음 배치 전 대기
+                    If batchIndex < totalBatches - 1 Then
+                        Await Task.Delay(10)
+                    End If
+                End If
+            Next
+            
+        Finally
+            ' 레이아웃 재개
+            If Not flowLayoutPanel.IsDisposed Then
+                flowLayoutPanel.ResumeLayout(True)
+                flowLayoutPanel.Refresh()
+            End If
+        End Try
+
+    Catch ex As Exception
+        Console.WriteLine($"AddProductControlsAsync 오류: {ex.Message}")
+        Console.WriteLine(ex.StackTrace)
+    End Try
+End Function
+
+
+
+' Form1.vb의 ExtractProducts 메서드 개선
+' ConcurrentBag 사용 시 스레드 안전성 강화
+
+Private Function ExtractProducts(htmlDoc As HtmlDocument) As List(Of Product)
+    ' 스레드 안전한 컬렉션 사용
+    Dim products As New ConcurrentBag(Of Product)()
+    Dim processedIds As New ConcurrentDictionary(Of String, Boolean)()
+    
+    Try
+        Console.WriteLine("상품 추출 시작...")
+        
+        ' 모든 상품 노드 수집
+        Dim allNodes As New List(Of HtmlNode)()
+        
+        ' small_product_div 노드
+        Dim smallProductNodes = htmlDoc.DocumentNode.SelectNodes("//div[contains(@class, 'small_product_div')]")
+        If smallProductNodes IsNot Nothing Then
+            allNodes.AddRange(smallProductNodes)
+            Console.WriteLine($"small_product_div 노드 {smallProductNodes.Count}개 발견")
+        End If
+        
+        ' slide-box 노드
+        Dim slideBoxNodes = htmlDoc.DocumentNode.SelectNodes("//div[contains(@class, 'slide-box')]")
+        If slideBoxNodes IsNot Nothing Then
+            allNodes.AddRange(slideBoxNodes)
+            Console.WriteLine($"slide-box 노드 {slideBoxNodes.Count}개 발견")
+        End If
+        
+        ' 병렬 처리 옵션
+        Dim parallelOptions As New ParallelOptions() With {
+            .MaxDegreeOfParallelism = Math.Min(Environment.ProcessorCount, 4)
+        }
+        
+        ' 병렬로 상품 추출
+        Parallel.ForEach(allNodes, parallelOptions, Sub(node)
+            Try
+                Dim isSlideBox = node.GetClasses().Contains("slide-box")
+                Dim product = ExtractSingleProduct(node, isSlideBox)
+                
+                If product IsNot Nothing Then
+                    ' 중복 체크 (스레드 안전)
+                    If processedIds.TryAdd(product.Id, True) Then
+                        ' 차단 상품 체크
+                        Dim isBanned = False
+                        SyncLock bannedProducts
+                            isBanned = bannedProducts.ContainsKey(product.Id)
+                        End SyncLock
+                        
+                        If Not isBanned Then
+                            products.Add(product)
+                            
+                            ' 가격 정보 갱신 (스레드 안전)
+                            SyncLock productPrices
+                                productPrices(product.Id) = product.Price
+                            End SyncLock
+                        End If
+                    End If
+                End If
+            Catch ex As Exception
+                Console.WriteLine($"상품 처리 오류: {ex.Message}")
+            End Try
+        End Sub)
+        
+        ' 결과를 리스트로 변환
+        Dim resultList = products.ToList()
+        Console.WriteLine($"최종 추출된 상품 개수: {resultList.Count}")
+        
+        ' 키워드 매칭 로깅
+        LogKeywordMatchedProducts(resultList)
+        
+        Return resultList
+        
+    Catch ex As Exception
+        Console.WriteLine($"상품 추출 중 오류: {ex.Message}")
+        Console.WriteLine(ex.StackTrace)
+        Return New List(Of Product)()
+    End Try
+End Function
+
+' ExtractSingleProduct 메서드 개선 (null 안전성 강화)
+Private Function ExtractSingleProduct(productNode As HtmlNode, isSlideBox As Boolean) As Product
+    If productNode Is Nothing Then Return Nothing
+    
+    Try
+        ' 링크 추출
+        Dim linkElement = productNode.SelectSingleNode(".//a")
+        If linkElement Is Nothing Then Return Nothing
+        
+        Dim href = linkElement.GetAttributeValue("href", "")
+        If String.IsNullOrWhiteSpace(href) Then Return Nothing
+        
+        ' HTML 디코딩
+        href = Net.WebUtility.HtmlDecode(href)
+        
+        ' ID 추출
+        Dim productInfo = ExtractProductIds(href)
+        If String.IsNullOrEmpty(productInfo.productId) Then Return Nothing
+        
+        ' 필수 정보 추출
+        Dim title = ExtractProductTitle(productNode, isSlideBox)
+        If String.IsNullOrWhiteSpace(title) Then Return Nothing
+        
+        ' 정보 수집
+        Dim price = ExtractProductPrice(productNode, isSlideBox)
+        Dim discountRate = ExtractDiscountRate(productNode)
+        Dim imageUrl = ExtractImageUrl(productNode)
+        Dim badges = ExtractBadges(productNode)
+        
+        ' URL 정규화
+        Dim productUrl = If(href.StartsWith("http", StringComparison.OrdinalIgnoreCase), 
+                           href, 
+                           "https://fallcent.com" & href)
+        
+        ' 상품 객체 생성
+        Dim product As New Product() With {
+            .Id = $"{productInfo.productId}_{productInfo.itemId}",
+            .Title = title.Trim(),
+            .Price = price,
+            .DiscountRate = discountRate,
+            .ImageUrl = imageUrl,
+            .ProductUrl = productUrl,
+            .IsElectronic = IsElectronicProduct(title),
+            .IsSuperDeal = (discountRate >= SUPER_DISCOUNT_THRESHOLD),
+            .IsKeywordMatch = IsKeywordProduct(title),
+            .IsRocket = badges.isRocket,
+            .IsLowest = badges.isLowest,
+            .Seen = False,
+            .PriceChanged = False
+        }
+        
+        ' 상태 정보 설정 (스레드 안전)
+        UpdateProductStatus(product)
+        
+        Return product
+        
+    Catch ex As Exception
+        Console.WriteLine($"단일 상품 추출 오류: {ex.Message}")
+        Return Nothing
+    End Try
+End Function
+
+' 상품 상태 업데이트 (스레드 안전)
+Private Sub UpdateProductStatus(product As Product)
+    If product Is Nothing Then Return
+    
+    ' 이미 본 상품 체크
+    SyncLock seenProducts
+        If seenProducts.ContainsKey(product.Id) Then
+            product.Seen = True
+        End If
+    End SyncLock
+    
+    ' 가격 변동 체크
+    SyncLock productPrices
+        If productPrices.ContainsKey(product.Id) Then
+            Dim oldPrice = productPrices(product.Id)
+            If oldPrice > 0 AndAlso product.Price <> oldPrice Then
+                product.PriceChanged = True
+                product.OldPrice = oldPrice
+            End If
+        End If
+    End SyncLock
+End Sub
+
+
+' Form2.vb의 UpdateAllAlerts 메서드 개선
+' 리스트 조작 시 안전성 강화
+
+Public Sub UpdateAllAlerts(superDeals As List(Of Product), electronics As List(Of Product), bestDeals As List(Of Product))
+    Try
+        ' 입력 검증
+        If superDeals Is Nothing Then superDeals = New List(Of Product)()
+        If electronics Is Nothing Then electronics = New List(Of Product)()
+        If bestDeals Is Nothing Then bestDeals = New List(Of Product)()
+        
+        SyncLock _controlLock
+            If _isDisposing Then Return
+            
+            ' 기존 사운드 중지
+            StopAllAlertSounds()
+            
+            ' 각 리스트의 복사본 생성 (원본 수정 방지)
+            Dim superDealsCopy = superDeals.ToList()
+            Dim electronicsCopy = electronics.ToList()
+            Dim bestDealsCopy = bestDeals.ToList()
+            
+            ' 로켓배송 필터링
+            If checkRocketOnly.Checked Then
+                superDealsCopy = superDealsCopy.Where(Function(p) p IsNot Nothing AndAlso p.IsRocket).ToList()
+                electronicsCopy = electronicsCopy.Where(Function(p) p IsNot Nothing AndAlso p.IsRocket).ToList()
+                bestDealsCopy = bestDealsCopy.Where(Function(p) p IsNot Nothing AndAlso p.IsRocket).ToList()
+            End If
+            
+            ' 키워드 매칭 상품 필터링 (중복 제거)
+            Dim keywordSet As New HashSet(Of String)()
+            Dim keywordList As New List(Of Product)()
+            
+            ' 모든 리스트에서 키워드 매칭 상품 수집
+            For Each p In superDealsCopy.Concat(electronicsCopy).Concat(bestDealsCopy)
+                If p IsNot Nothing AndAlso p.IsKeywordMatch AndAlso keywordSet.Add(p.Id) Then
+                    keywordList.Add(p)
+                End If
+            Next
+            
+            ' 리스트 업데이트
+            superSaleProducts.Clear()
+            superSaleProducts.AddRange(superDealsCopy)
+            superSaleIndex = 0
+            
+            electronicsProducts.Clear()
+            electronicsProducts.AddRange(electronicsCopy)
+            electronicsIndex = 0
+            
+            bestDealProducts.Clear()
+            bestDealProducts.AddRange(bestDealsCopy)
+            bestDealIndex = 0
+            
+            keywordProducts.Clear()
+            keywordProducts.AddRange(keywordList)
+            keywordIndex = 0
+            
+            ' UI 업데이트는 UI 스레드에서
+            If Me.InvokeRequired Then
+                Me.Invoke(Sub() UpdateAlertsUI())
+            Else
+                UpdateAlertsUI()
+            End If
+        End SyncLock
+        
+    Catch ex As Exception
+        Console.WriteLine($"UpdateAllAlerts 오류: {ex.Message}")
+        Console.WriteLine(ex.StackTrace)
+    End Try
+End Sub
+
+' UI 업데이트 메서드 분리
+Private Sub UpdateAlertsUI()
+    Try
+        ' 알림 표시 (우선순위별 사운드 재생)
+        Dim playedSound As Boolean = False
+        
+        ' 초특가 알림 (최우선)
+        If superSaleProducts.Count > 0 Then
+            ShowSuperSaleCurrent(True)  ' 항상 사운드 재생
+            playedSound = True
+        Else
+            ClearGroupBoxSafely(GroupBox1)
+        End If
+        
+        ' 가전/디지털 알림 (2순위)
+        If electronicsProducts.Count > 0 Then
+            ShowElectronicsCurrent(Not playedSound)
+            If Not playedSound Then playedSound = True
+        Else
+            ClearGroupBoxSafely(GroupBox2)
+        End If
+        
+        ' 베스트 알림 (3순위)
+        If bestDealProducts.Count > 0 Then
+            ShowBestDealCurrent(Not playedSound)
+            If Not playedSound Then playedSound = True
+        Else
+            ClearGroupBoxSafely(GroupBox3)
+        End If
+        
+        ' 키워드 알림 (마지막)
+        If keywordProducts.Count > 0 Then
+            ShowNextKeywordAlert(Not playedSound)
+        Else
+            ClearGroupBoxSafely(GroupBox4)
+        End If
+        
+    Catch ex As Exception
+        Console.WriteLine($"UpdateAlertsUI 오류: {ex.Message}")
+    End Try
+End Sub
+
+' 안전한 GroupBox 정리
+Private Sub ClearGroupBoxSafely(groupBox As GroupBox)
+    Try
+        If groupBox Is Nothing OrElse groupBox.IsDisposed Then Return
+        
+        StopAllAlertSoundsInGroup(groupBox)
+        
+        ' 컨트롤 복사본 생성
+        Dim controlsToRemove = groupBox.Controls.Cast(Of Control)().ToArray()
+        groupBox.Controls.Clear()
+        
+        ' 컨트롤 정리
+        For Each ctrl In controlsToRemove
+            Try
+                If TypeOf ctrl Is CustomAlertControl Then
+                    DirectCast(ctrl, CustomAlertControl).StopAlertSound()
+                End If
+                ctrl.Dispose()
+            Catch ex As Exception
+                ' 개별 컨트롤 정리 실패는 무시
+            End Try
+        Next
+        
+    Catch ex As Exception
+        Console.WriteLine($"GroupBox 정리 오류: {ex.Message}")
+    End Try
+End Sub
+
+
+
+
+
+
+
