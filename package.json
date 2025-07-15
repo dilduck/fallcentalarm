@@ -1,0 +1,17 @@
+{
+  "name": "fallcentalert-web",
+  "version": "1.0.0",
+  "description": "폴센트 핫딜 감시 웹 버전",
+  "main": "server/app.js",
+  "scripts": {
+    "start": "node server/app.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "node-cron": "^3.0.3",
+    "puppeteer": "^22.6.2",
+    "socket.io": "^4.7.5"
+  }
+}
