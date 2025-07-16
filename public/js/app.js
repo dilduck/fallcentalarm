@@ -126,6 +126,21 @@ class FallcentAlertApp {
             return;
         }
 
+        // 🔧 사용자 설정에서 해당 알림 타입의 소리가 활성화되어 있는지 확인
+        const isNotificationEnabled = this.currentSettings.notifications?.browserNotifications !== false;
+        const soundSetting = this.currentSettings.notifications?.sounds?.[alertType];
+        const isSoundEnabled = soundSetting && typeof soundSetting === 'string';
+        
+        if (!isNotificationEnabled) {
+            console.log(`🔇 알림이 비활성화됨 - ${alertType} 소리 재생 안함`);
+            return;
+        }
+        
+        if (!isSoundEnabled) {
+            console.log(`🔇 ${alertType} 소리가 비활성화됨 - 소리 재생 안함`);
+            return;
+        }
+
         // 반복재생 설정 확인
         const repeat = soundInfo?.repeat || { enabled: false, count: 1, interval: 0 };
         
@@ -304,11 +319,10 @@ class FallcentAlertApp {
                 this.filterAlertsForUser();
                 console.log('💾 클라이언트 추가 필터링 후:', Object.keys(this.alerts).map(k => `${k}: ${this.alerts[k].length}개`).join(', '));
                 
-                // 🔊 초기 로드 시에는 소리 재생하지 않음 (이미 본 알림일 수 있음)
+                // 🔇 초기 로드 시에는 소리 재생하지 않음 (기존 알림이므로)
                 const hasAlerts = Object.values(this.alerts).some(alertArray => alertArray.length > 0);
                 if (hasAlerts) {
                     console.log('🔇 초기 로드: 기존 알림 있음 - 소리 재생 안 함');
-                    // this.playInitialAlertSound(); // 비활성화
                 }
             }
             
@@ -325,11 +339,10 @@ class FallcentAlertApp {
             this.showToast('상품 목록이 업데이트되었습니다.', 'success');
         });
 
-        // 새 알림 (사운드 재생 없이 처리)
+        // 새 알림 (비활성화 - alerts-updated에서 처리)
         this.socket.on('new-alerts', (data) => {
-            console.log('새 알림 수신 (사운드 재생 안함):', data);
-            // 사운드 재생 없이 알림만 추가
-            this.processNewAlertsWithoutSound(data.alerts);
+            console.log('🔇 new-alerts 이벤트 수신하지만 처리하지 않음 (alerts-updated에서 처리):', data);
+            // 사운드 재생 없이 무시
         });
 
         // 카테고리별 알림
@@ -374,7 +387,7 @@ class FallcentAlertApp {
             // 사용자별 필터링 적용 (이중 보안)
             this.filterAlertsForUser();
             
-            // 🔊 새로운 알림이 있는지 확인하고 소리 재생 (실제 표시될 알림 기준)
+            // 🔊 새로운 알림이 있는지 확인하고 사운드 재생 (실제 표시될 알림 기준)
             this.checkAndPlaySoundForNewAlerts(previousAlerts, this.alerts);
             
             console.log('✅ 클라이언트 알림 상태 완전 동기화 완료');
@@ -883,11 +896,25 @@ class FallcentAlertApp {
     // 확인된 상품 기록 초기화
     clearViewedProducts() {
         if (confirm('모든 확인된 상품 기록을 초기화하시겠습니까?\n(상품들이 다시 "새로운" 상태로 표시됩니다)')) {
+            // 1. 사용자별 읽은 상품 초기화
+            this.userSeenProducts.clear();
+            this.saveUserSeenProducts();
+            console.log('🧹 사용자별 읽은 상품 초기화 완료');
+            
+            // 2. 서버에 빈 userSeenProducts 배열 전송
+            this.socket.emit('init-session', { 
+                sessionId: this.sessionId,
+                userSeenProducts: []
+            });
+            
+            // 3. 글로벌 읽은 상품도 초기화 (기존 API 호출)
             fetch('/api/viewed-products', { method: 'DELETE' })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
                         this.showToast('확인된 상품 기록이 초기화되었습니다.', 'success');
+                        console.log('✅ 모든 읽은 상품 데이터 초기화 완료');
+                        
                         // 즉시 재크롤링하여 변경사항 확인
                         setTimeout(() => {
                             this.requestManualCrawl();
@@ -1044,6 +1071,11 @@ class FallcentAlertApp {
     }
 
     checkAndPlaySoundForNewAlerts(previousAlerts, currentAlerts) {
+        // 🔧 더 안전한 새 알림 감지 로직
+        console.log('🔍 새 알림 감지 시작...');
+        console.log('📊 이전 알림:', Object.keys(previousAlerts).map(k => `${k}: ${previousAlerts[k]?.length || 0}개`).join(', '));
+        console.log('📊 현재 알림:', Object.keys(currentAlerts).map(k => `${k}: ${currentAlerts[k]?.length || 0}개`).join(', '));
+        
         // 각 카테고리별로 새로운 알림 찾기
         const newAlerts = [];
         
@@ -1055,42 +1087,68 @@ class FallcentAlertApp {
             currTypeAlerts.forEach(alert => {
                 const isNewAlert = !prevTypeAlerts.some(prevAlert => prevAlert.id === alert.id);
                 if (isNewAlert) {
-                    newAlerts.push({ ...alert, type: type });
+                    // 🔧 사용자가 이미 본 상품인지 다시 한번 확인
+                    const isSeenByUser = this.isProductSeen(alert.productId);
+                    if (!isSeenByUser) {
+                        console.log(`✅ 새 알림 발견: ${type} - ${alert.product?.title?.substring(0, 30)}...`);
+                        newAlerts.push({ ...alert, type: type });
+                    } else {
+                        console.log(`🔇 새 알림이지만 이미 본 상품: ${alert.productId}`);
+                    }
                 }
             });
         });
         
         // 새로운 알림이 있으면 소리 재생
         if (newAlerts.length > 0) {
-            console.log(`🔊 새로운 알림 ${newAlerts.length}개 감지 - 소리 재생`);
-            
-            // Web Audio Context 상태 확인 및 활성화
-            if (this.audioContext && this.audioContext.state === 'suspended') {
-                console.log('🔊 Audio Context가 일시중단됨 - 활성화 시도');
-                this.audioContext.resume().then(() => {
-                    console.log('🔊 Audio Context 활성화 성공');
-                    this.playNewAlertsSound(newAlerts);
-                }).catch(error => {
-                    console.warn('🔊 Audio Context 활성화 실패:', error);
-                });
-            } else {
-                this.playNewAlertsSound(newAlerts);
-            }
+            console.log(`🔊 최종 새로운 알림 ${newAlerts.length}개 감지 - 소리 재생`);
+            this.playNewAlertsSound(newAlerts);
+        } else {
+            console.log(`🔇 새로운 알림 없음 - 소리 재생 안함`);
         }
     }
 
     playNewAlertsSound(newAlerts) {
-        // 우선순위가 가장 높은 알림의 소리 재생 (VB.NET 방식과 동일)
-        const priorityOrder = ['super', 'electronics', 'keyword', 'best'];
-        for (const type of priorityOrder) {
-            const typeAlerts = newAlerts.filter(alert => alert.type === type);
-            if (typeAlerts.length > 0) {
-                // 해당 타입의 첫 번째 알림에서 소리 설정 가져오기
-                const soundInfo = typeAlerts[0].sound;
-                console.log(`🔊 ${type} 타입 알림 소리 재생 시작`);
-                this.playAlertSoundWithRepeat(type, soundInfo);
-                break; // 가장 높은 우선순위 하나만 재생
-            }
+        if (!newAlerts || newAlerts.length === 0) return;
+        
+        // 🔧 알림 설정 확인
+        const isNotificationEnabled = this.currentSettings.notifications?.enabled !== false;
+        if (!isNotificationEnabled) {
+            console.log(`🔇 알림이 전체적으로 비활성화됨 - 소리 재생 안함`);
+            return;
+        }
+        
+        console.log(`🔊 새 알림 사운드 재생: ${newAlerts.length}개`);
+        
+        // 첫 번째 알림의 타입과 사운드 정보 사용
+        const firstAlert = newAlerts[0];
+        const alertType = firstAlert.type || 'best'; // 기본값: best
+        
+        // 🔧 해당 타입의 사운드가 활성화되어 있는지 확인
+        const isSoundEnabled = this.currentSettings.notifications?.sounds?.[alertType] !== false;
+        if (!isSoundEnabled) {
+            console.log(`🔇 ${alertType} 타입 사운드가 비활성화됨 - 소리 재생 안함`);
+            return;
+        }
+        
+        const soundInfo = firstAlert.sound || { 
+            file: `${alertType}.wav`,
+            repeat: { enabled: true, count: 1, interval: 1000 }
+        };
+        
+        console.log(`🔊 ${alertType} 타입 알림 소리 재생 시작 (설정 확인 완료)`);
+        
+        // Audio Context 상태 확인 및 활성화
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            console.log('🔊 Audio Context가 일시중단됨 - 활성화 시도');
+            this.audioContext.resume().then(() => {
+                console.log('🔊 Audio Context 활성화 성공');
+                this.playAlertSoundWithRepeat(alertType, soundInfo);
+            }).catch(error => {
+                console.warn('🔊 Audio Context 활성화 실패:', error);
+            });
+        } else {
+            this.playAlertSoundWithRepeat(alertType, soundInfo);
         }
     }
 

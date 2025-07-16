@@ -3,7 +3,7 @@ class AlertService {
         this.io = io;
         this.storageService = storageService;
         this.sessionAlertService = null; // app.js에서 주입됨
-        this.SUPER_DISCOUNT_THRESHOLD = 49;
+        this.SUPER_DISCOUNT_THRESHOLD = 40; // 40%로 설정 (적당한 수준)
     }
 
     setSessionAlertService(sessionAlertService) {
@@ -53,10 +53,10 @@ class AlertService {
                 this.storageService.addActiveAlert(alert.type, alert);
             }
             
-            // 🔊 새로운 알림이 있을 때만 사운드용 이벤트 추가 전송 (백업본 방식)
-            if (limitedAlerts.length > 0) {
-                this.sendNewAlertsForSound(limitedAlerts);
-            }
+            // 🔇 사운드용 이벤트는 비활성화 (alerts-updated에서 처리)
+            // if (limitedAlerts.length > 0) {
+            //     this.sendNewAlertsForSound(limitedAlerts);
+            // }
             
             // 기존 알림과 새 알림을 합쳐서 클라이언트에게 전송
             this.sendAllAlertsToClients();
@@ -484,13 +484,31 @@ class AlertService {
         let totalSent = 0;
         
         sockets.forEach((socket) => {
-            // 사용자별 필터링
+            // 🔧 소켓에 사용자 읽은 상품 정보가 없으면 스킵
+            if (!socket.userSeenProducts) {
+                console.log(`⚠️ 사용자 ${socket.id}의 읽은 상품 정보가 없음 - 스킵`);
+                return;
+            }
+            
+            console.log(`👤 사용자 ${socket.id} 읽은 상품: ${socket.userSeenProducts.size}개`);
+            
+            // 사용자별 필터링 - 더 엄격하게 검사
             const userFilteredAlerts = newAlerts.filter(alert => {
-                const isSeen = socket.userSeenProducts && socket.userSeenProducts.has(alert.productId);
+                const isSeen = socket.userSeenProducts.has(alert.productId);
                 if (isSeen) {
-                    console.log(`🔇 사용자 ${socket.id}는 이미 본 상품: ${alert.productId}`);
+                    console.log(`🔇 사용자 ${socket.id}는 이미 본 상품: ${alert.productId} - ${alert.product?.title?.substring(0, 30)}...`);
+                    return false;
                 }
-                return !isSeen;
+                
+                // 추가 검증: 글로벌 읽은 상품도 확인
+                const isGloballySeen = this.storageService.isProductSeen(alert.productId);
+                if (isGloballySeen) {
+                    console.log(`🔇 글로벌로 읽은 상품: ${alert.productId} - 사용자별에도 추가`);
+                    socket.userSeenProducts.add(alert.productId);
+                    return false;
+                }
+                
+                return true;
             });
             
             // 필터링된 알림이 있는 경우에만 전송
@@ -503,28 +521,11 @@ class AlertService {
                     count: userFilteredAlerts.length
                 });
                 
-                // 카테고리별 알림도 개별 전송 (사용자별 필터링된 것만)
-                const alertsByCategory = this.groupAlertsByCategory(userFilteredAlerts);
-                
-                Object.keys(alertsByCategory).forEach(category => {
-                    socket.emit(`alerts-${category}`, {
-                        alerts: alertsByCategory[category],
-                        category: category,
-                        timestamp: new Date()
-                    });
-                });
-                
                 totalSent++;
             } else {
                 console.log(`🔇 사용자 ${socket.id}는 모든 알림이 이미 본 상품`);
             }
         });
-        
-        // 브라우저 푸시 알림 지원 (전역 설정)
-        const settings = this.storageService.getSettings();
-        if (settings.notifications?.browserNotifications && totalSent > 0) {
-            this.sendBrowserNotifications(newAlerts);
-        }
         
         console.log(`🔊 총 ${totalSent}명의 사용자에게 새 알림 사운드 재생용 이벤트를 전송했습니다.`);
     }
