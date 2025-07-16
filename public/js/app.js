@@ -325,10 +325,11 @@ class FallcentAlertApp {
             this.showToast('상품 목록이 업데이트되었습니다.', 'success');
         });
 
-        // 새 알림
+        // 새 알림 (사운드 재생 없이 처리)
         this.socket.on('new-alerts', (data) => {
-            console.log('새 알림 수신:', data);
-            this.processNewAlerts(data.alerts);
+            console.log('새 알림 수신 (사운드 재생 안함):', data);
+            // 사운드 재생 없이 알림만 추가
+            this.processNewAlertsWithoutSound(data.alerts);
         });
 
         // 카테고리별 알림
@@ -360,20 +361,20 @@ class FallcentAlertApp {
             console.log(`🔍 키워드 알림 업데이트: ${data.alerts.length}개 -> 필터링후: ${filteredAlerts.length}개`);
         });
 
-        // 전체 알림 업데이트 (완전 교체)
+        // 전체 알림 업데이트 (완전 교체) - 사용자별 필터링 후 최종 상태
         this.socket.on('alerts-updated', (data) => {
-            console.log('🔄 전체 알림 업데이트 수신:', data);
+            console.log('🔄 전체 알림 업데이트 수신 (사용자별 필터링 완료):', data);
             
             // 이전 알림 상태 저장 (새로운 알림 감지용)
             const previousAlerts = JSON.parse(JSON.stringify(this.alerts));
             
-            // 전체 알림 상태를 서버에서 받은 것으로 완전 교체 (사용자별 필터링 적용)
+            // 전체 알림 상태를 서버에서 받은 것으로 완전 교체 (이미 사용자별 필터링 적용됨)
             this.alerts = data.alerts;
             
-            // 사용자별 필터링 적용
+            // 사용자별 필터링 적용 (이중 보안)
             this.filterAlertsForUser();
             
-            // 새로운 알림이 있는지 확인하고 소리 재생
+            // 🔊 새로운 알림이 있는지 확인하고 소리 재생 (실제 표시될 알림 기준)
             this.checkAndPlaySoundForNewAlerts(previousAlerts, this.alerts);
             
             console.log('✅ 클라이언트 알림 상태 완전 동기화 완료');
@@ -497,6 +498,32 @@ class FallcentAlertApp {
                 }
             }
         }
+    }
+
+    // 사운드 재생 없이 알림만 처리하는 메서드
+    processNewAlertsWithoutSound(alerts) {
+        console.log('🔇 사운드 없이 알림 처리:', alerts.length + '개');
+        
+        // 사용자별 필터링: 이미 본 상품의 알림 제외
+        const filteredAlerts = alerts.filter(alert => !this.isProductSeen(alert.productId));
+        
+        filteredAlerts.forEach(alert => {
+            // 알림 섹션 업데이트만 수행
+            if (!this.alerts[alert.type]) {
+                this.alerts[alert.type] = [];
+            }
+            this.alerts[alert.type].unshift(alert);
+            
+            // 최대 5개까지만 유지
+            if (this.alerts[alert.type].length > 5) {
+                this.alerts[alert.type] = this.alerts[alert.type].slice(0, 5);
+            }
+        });
+        
+        // 사용자별 필터링 적용 후 UI 업데이트 (사운드 없음)
+        this.filterAlertsForUser();
+        
+        console.log('🔇 사운드 없이 알림 처리 완료:', filteredAlerts.length + '개');
     }
 
     // 사용자별 알림 필터링
