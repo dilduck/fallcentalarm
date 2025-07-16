@@ -473,37 +473,60 @@ class AlertService {
         return testAlert;
     }
 
-    // 🔊 새로운 알림을 사운드 재생용으로 전송 (백업본 방식)
+    // 🔊 새로운 알림을 사운드 재생용으로 전송 (사용자별 필터링 적용)
     sendNewAlertsForSound(newAlerts) {
         if (newAlerts.length === 0) return;
         
-        console.log(`🔊 새 알림 사운드 재생용 이벤트 전송: ${newAlerts.length}개`);
+        console.log(`🔊 새 알림 사운드 재생용 이벤트 전송 준비: ${newAlerts.length}개`);
         
-        // 백업본과 동일한 형식으로 new-alerts 이벤트 전송
-        this.io.emit('new-alerts', {
-            alerts: newAlerts,
-            timestamp: new Date(),
-            count: newAlerts.length
-        });
+        // 각 소켓별로 사용자별 필터링 적용
+        const sockets = this.io.sockets.sockets;
+        let totalSent = 0;
         
-        // 카테고리별 알림도 개별 전송 (기존 방식 유지)
-        const alertsByCategory = this.groupAlertsByCategory(newAlerts);
-        
-        Object.keys(alertsByCategory).forEach(category => {
-            this.io.emit(`alerts-${category}`, {
-                alerts: alertsByCategory[category],
-                category: category,
-                timestamp: new Date()
+        sockets.forEach((socket) => {
+            // 사용자별 필터링
+            const userFilteredAlerts = newAlerts.filter(alert => {
+                const isSeen = socket.userSeenProducts && socket.userSeenProducts.has(alert.productId);
+                if (isSeen) {
+                    console.log(`🔇 사용자 ${socket.id}는 이미 본 상품: ${alert.productId}`);
+                }
+                return !isSeen;
             });
+            
+            // 필터링된 알림이 있는 경우에만 전송
+            if (userFilteredAlerts.length > 0) {
+                console.log(`🔊 사용자 ${socket.id}에게 ${userFilteredAlerts.length}개 알림 전송`);
+                
+                socket.emit('new-alerts', {
+                    alerts: userFilteredAlerts,
+                    timestamp: new Date(),
+                    count: userFilteredAlerts.length
+                });
+                
+                // 카테고리별 알림도 개별 전송 (사용자별 필터링된 것만)
+                const alertsByCategory = this.groupAlertsByCategory(userFilteredAlerts);
+                
+                Object.keys(alertsByCategory).forEach(category => {
+                    socket.emit(`alerts-${category}`, {
+                        alerts: alertsByCategory[category],
+                        category: category,
+                        timestamp: new Date()
+                    });
+                });
+                
+                totalSent++;
+            } else {
+                console.log(`🔇 사용자 ${socket.id}는 모든 알림이 이미 본 상품`);
+            }
         });
         
-        // 브라우저 푸시 알림 지원
+        // 브라우저 푸시 알림 지원 (전역 설정)
         const settings = this.storageService.getSettings();
-        if (settings.notifications?.browserNotifications) {
+        if (settings.notifications?.browserNotifications && totalSent > 0) {
             this.sendBrowserNotifications(newAlerts);
         }
         
-        console.log(`🔊 ${newAlerts.length}개 새 알림의 사운드 재생용 이벤트를 전송했습니다.`);
+        console.log(`🔊 총 ${totalSent}명의 사용자에게 새 알림 사운드 재생용 이벤트를 전송했습니다.`);
     }
 }
 

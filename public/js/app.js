@@ -304,11 +304,11 @@ class FallcentAlertApp {
                 this.filterAlertsForUser();
                 console.log('💾 클라이언트 추가 필터링 후:', Object.keys(this.alerts).map(k => `${k}: ${this.alerts[k].length}개`).join(', '));
                 
-                // 🔊 초기 로드 시에도 알림이 있으면 소리 재생
+                // 🔊 초기 로드 시에는 소리 재생하지 않음 (이미 본 알림일 수 있음)
                 const hasAlerts = Object.values(this.alerts).some(alertArray => alertArray.length > 0);
                 if (hasAlerts) {
-                    console.log('🔊 초기 로드: 기존 알림 감지 - 소리 재생');
-                    this.playInitialAlertSound();
+                    console.log('🔇 초기 로드: 기존 알림 있음 - 소리 재생 안 함');
+                    // this.playInitialAlertSound(); // 비활성화
                 }
             }
             
