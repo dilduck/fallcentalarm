@@ -56,6 +56,7 @@ class StorageService {
             
             // 현재 상품 로드
             this.cache.currentProducts = this.loadArrayFromFile(this.paths.currentProducts);
+            console.log(`📦 초기 로드: ${this.cache.currentProducts.length}개 상품 로드됨`);
             
             // 활성 알림 로드
             this.cache.activeAlerts = this.loadActiveAlerts();
@@ -364,11 +365,14 @@ class StorageService {
 
     // === 현재 상품 관련 ===
     updateCurrentProducts(products) {
+        console.log(`💾 updateCurrentProducts 호출 - ${products.length}개 상품 저장 시작`);
         this.cache.currentProducts = products;
         this.saveArrayToFile(this.cache.currentProducts, this.paths.currentProducts);
+        console.log(`✅ updateCurrentProducts 완료 - 메모리 캐시: ${this.cache.currentProducts.length}개`);
     }
 
     getAllProducts() {
+        console.log(`📦 getAllProducts 호출 - 캐시에서 ${this.cache.currentProducts.length}개 상품 반환`);
         return this.cache.currentProducts;
     }
 

@@ -20,6 +20,10 @@ router.post('/crawl', async (req, res) => {
         const products = await crawlerService.crawlFallcent();
         
         if (products && products.length > 0) {
+            // 크롤링한 상품들을 저장소에 저장
+            storageService.updateCurrentProducts(products);
+            console.log(`💾 ${products.length}개 상품을 저장소에 저장 완료`);
+            
             const alerts = alertService.processProducts(products);
             
             res.json({

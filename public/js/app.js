@@ -410,6 +410,13 @@ class FallcentAlertApp {
             this.showToast(`크롤링 오류: ${data.error}`, 'error');
         });
 
+        // 통계 업데이트 수신
+        this.socket.on('stats-updated', (data) => {
+            if (data.viewedProductsCount !== undefined) {
+                document.getElementById('viewedCount').textContent = data.viewedProductsCount;
+            }
+        });
+
         // 연결 상태
         this.socket.on('connect', () => {
             console.log('서버에 연결되었습니다.');
@@ -901,13 +908,16 @@ class FallcentAlertApp {
             this.saveUserSeenProducts();
             console.log('🧹 사용자별 읽은 상품 초기화 완료');
             
-            // 2. 서버에 빈 userSeenProducts 배열 전송
+            // 2. UI에 즉시 반영
+            document.getElementById('viewedCount').textContent = '0';
+            
+            // 3. 서버에 빈 userSeenProducts 배열 전송
             this.socket.emit('init-session', { 
                 sessionId: this.sessionId,
                 userSeenProducts: []
             });
             
-            // 3. 글로벌 읽은 상품도 초기화 (기존 API 호출)
+            // 4. 글로벌 읽은 상품도 초기화 (기존 API 호출)
             fetch('/api/viewed-products', { method: 'DELETE' })
                 .then(response => response.json())
                 .then(data => {
@@ -1021,7 +1031,8 @@ class FallcentAlertApp {
     }
 
     updateStats(stats) {
-        document.getElementById('viewedCount').textContent = stats.viewedProductsCount || 0;
+        // 사용자별 읽은 상품 개수 표시 (서버에서 전달된 값 사용)
+        document.getElementById('viewedCount').textContent = stats.viewedProductsCount || this.userSeenProducts.size || 0;
         document.getElementById('bannedCount').textContent = stats.bannedProductsCount || 0;
         document.getElementById('currentCount').textContent = stats.currentProductsCount || 0;
     }

@@ -49,6 +49,13 @@ class CrawlerService {
             // 페이지 로딩 대기
             await page.waitForSelector('.small_product_div', { timeout: 10000 });
 
+            // 스크롤하여 모든 상품 로드
+            console.log('페이지 스크롤하여 모든 상품 로드 중...');
+            await this.autoScroll(page);
+            
+            // 스크롤 후 잠시 대기
+            await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
+
             // HTML 가져오기
             const html = await page.content();
             
@@ -190,7 +197,6 @@ class CrawlerService {
                                 // 상품명도 출력해서 정말 전자제품인지 확인
                                 const title = $element.find('.another_item_name').text() || 
                                              $element.find('img').attr('alt') || '';
-                                console.log(`🔧 가전/디지털 상품 ID 추가: ${fullId} - ${title.substring(0, 50)}...`);
                             }
                         }
                     } catch (err) {
@@ -241,9 +247,14 @@ class CrawlerService {
         const products = [];
         const processedIds = new Set();
         
+        console.log('\n📊 상품 추출 시작...');
+        
         try {
             // 모든 상품 항목 찾기
-            $('.small_product_div').each((index, element) => {
+            const allProductDivs = $('.small_product_div');
+            console.log(`🔍 전체 상품 div 수: ${allProductDivs.length}개`);
+            
+            allProductDivs.each((index, element) => {
                 try {
                     const $element = $(element);
                     const product = this.parseProductElement($element, electronicProductIds);
@@ -263,6 +274,13 @@ class CrawlerService {
         } catch (error) {
             console.error('상품 추출 중 오류:', error);
         }
+        
+        console.log(`\n📊 상품 추출 완료 통계:`);
+        console.log(`- 처리된 상품 수: ${processedIds.size}개`);
+        console.log(`- 필터링 후 최종 상품 수: ${products.length}개`);
+        console.log(`- 가전/디지털 상품 수: ${products.filter(p => p.isElectronic).length}개`);
+        console.log(`- 초특가 상품 수: ${products.filter(p => p.isSuperDeal).length}개`);
+        console.log(`- 로켓배송 상품 수: ${products.filter(p => p.isRocket).length}개`);
         
         return products;
     }
@@ -307,10 +325,6 @@ class CrawlerService {
             // 로켓배송/최저가 뱃지 확인 - cheerio 인스턴스 전달
             const badges = this.extractBadges($element, $);
             
-            // 디버깅: 로켓배송 정보 로그
-            if (badges.isRocket) {
-                console.log(`🚀 로켓배송 상품 발견: ${title} (${fullId})`);
-            }
             
             // 전자제품 여부 확인 - VB.NET의 IsElectronicProduct 함수 참고
             const isElectronic = this.isElectronicProduct(fullId, title, electronicProductIds);
@@ -521,28 +535,24 @@ class CrawlerService {
                 const src = img.attr('src') || '';
                 const title = img.attr('title') || '';
                 
-                // 디버깅: 처음 3개 이미지만 로그
-                if (i < 3) {
-                    console.log(`🔍 이미지 ${i}: alt="${alt}", src="${src}"`);
-                }
                 
-                // 로켓배송 키워드 확인
+                // 로켓배송 키워드 확인 - web_rocket_icon 추가
                 if (alt.includes('로켓배송') || 
                     alt.includes('로켓') ||
                     src.includes('rocket') || 
+                    src.includes('web_rocket_icon') ||
                     src.includes('로켓') ||
                     src.includes('delivery') ||
                     alt.toLowerCase().includes('rocket')) {
                     badges.isRocket = true;
-                    console.log(`🚀 로켓배송 이미지 발견: alt="${alt}", src="${src}"`);
                 }
                 
-                // 최저가 키워드 확인
+                // 최저가 키워드 확인 - web_lowest_icon 추가
                 if (alt.includes('최저가') || 
                     alt.includes('lowest') || 
-                    src.includes('lowest')) {
+                    src.includes('lowest') ||
+                    src.includes('web_lowest_icon')) {
                     badges.isLowest = true;
-                    console.log(`💰 최저가 이미지 발견: alt="${alt}", src="${src}"`);
                 }
             }
             
@@ -553,12 +563,10 @@ class CrawlerService {
                 elementText.includes('rocket') ||
                 elementText.includes('당일배송')) {
                 badges.isRocket = true;
-                console.log(`🚀 로켓배송 텍스트 발견: "${elementText.substring(0, 100)}..."`);
             }
             
             if (elementText.includes('최저가')) {
                 badges.isLowest = true;
-                console.log(`💰 최저가 텍스트 발견: "${elementText.substring(0, 50)}..."`);
             }
             
             // 3. CSS 클래스 확인
@@ -707,6 +715,25 @@ class CrawlerService {
         }
         
         return false;
+    }
+
+    async autoScroll(page) {
+        await page.evaluate(async () => {
+            await new Promise((resolve) => {
+                let totalHeight = 0;
+                const distance = 100;
+                const timer = setInterval(() => {
+                    const scrollHeight = document.body.scrollHeight;
+                    window.scrollBy(0, distance);
+                    totalHeight += distance;
+
+                    if(totalHeight >= scrollHeight){
+                        clearInterval(timer);
+                        resolve();
+                    }
+                }, 100);
+            });
+        });
     }
 }
 

@@ -139,7 +139,10 @@ class FallcentAlert {
                 socket.emit('initial-data', {
                     products: this.storageService.getAllProducts(),
                     settings: this.storageService.getSettings(),
-                    stats: this.storageService.getStats(),
+                    stats: {
+                        ...this.storageService.getStats(),
+                        viewedProductsCount: userSeenProducts.length // 사용자별 읽은 상품 개수
+                    },
                     alerts: sessionAlerts
                 });
             });
@@ -169,6 +172,11 @@ class FallcentAlert {
                 
                 // 해당 사용자에게만 상품 업데이트 전송
                 socket.emit('product-updated', { productId, seen: true });
+                
+                // 통계 업데이트 전송
+                socket.emit('stats-updated', {
+                    viewedProductsCount: socket.userSeenProducts.size
+                });
             });
             
             // 상품 차단 처리
@@ -196,12 +204,27 @@ class FallcentAlert {
                 // 2. 세션에서 알림 닫기
                 this.sessionAlertService.closeAlertInSession(sessionId, alertId);
                 
-                // 3. 해당 세션에만 업데이트된 알림 전송
+                // 3. 알림 충원 - 전역 저장소에서 제거하고 새로운 알림 추가
+                const removed = this.storageService.removeActiveAlert(alertId);
+                if (removed) {
+                    console.log(`🔄 알림 충원 시작...`);
+                    this.alertService.replenishAlerts();
+                    
+                    // 전체 알림 업데이트를 모든 클라이언트에게 전송
+                    this.alertService.sendAllAlertsToClients();
+                }
+                
+                // 4. 해당 세션에만 업데이트된 알림 전송
                 const sessionAlerts = this.sessionAlertService.getSessionAlerts(sessionId);
                 socket.emit('alerts-updated', {
                     alerts: sessionAlerts,
                     timestamp: new Date(),
                     replace: true
+                });
+                
+                // 5. 통계 업데이트 전송
+                socket.emit('stats-updated', {
+                    viewedProductsCount: socket.userSeenProducts.size
                 });
                 
                 console.log(`✅ 사용자별 알림 닫기 완료: ${sessionId} -> ${alertId}`);
@@ -293,6 +316,10 @@ class FallcentAlert {
             
             if (products && products.length > 0) {
                 console.log(`${products.length}개 상품 발견`);
+                
+                // 크롤링한 상품들을 저장소에 저장 (이것이 누락되어 있었음!)
+                this.storageService.updateCurrentProducts(products);
+                console.log(`💾 ${products.length}개 상품을 저장소에 저장 완료`);
                 
                 // 새로운 상품과 가격 변동 체크
                 const alerts = this.alertService.processProducts(products);

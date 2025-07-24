@@ -3,7 +3,7 @@ class AlertService {
         this.io = io;
         this.storageService = storageService;
         this.sessionAlertService = null; // app.js에서 주입됨
-        this.SUPER_DISCOUNT_THRESHOLD = 40; // 40%로 설정 (적당한 수준)
+        this.SUPER_DISCOUNT_THRESHOLD = 49; // 49%로 설정
     }
 
     setSessionAlertService(sessionAlertService) {
