@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(playwright install:*)",
+      "Bash(python:*)",
+      "Bash(chcp:*)",
+      "Bash(set PYTHONIOENCODING=utf-8)",
+      "Bash(dir:*)",
+      "Bash(powershell:*)",
+      "Bash(findstr:*)",
+      "Bash(rm:*)"
+    ],
+    "deny": []
+  }
+}

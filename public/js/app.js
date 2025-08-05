@@ -303,8 +303,10 @@ class FallcentAlertApp {
 
         // 초기 데이터 수신
         this.socket.on('initial-data', (data) => {
-            console.log('📥 초기 데이터 수신:', data);
-            console.log('📊 서버에서 받은 알림:', data.alerts);
+            console.log('📡 초기 데이터 수신:');
+            console.log(`  - 상품: ${data.products?.length || 0}개`);
+            console.log(`  - 설정: ${data.settings ? '있음' : '없음'}`);
+            console.log(`  - 통계: ${data.stats ? '있음' : '없음'}`);
             
             this.currentProducts = data.products || [];
             this.currentSettings = data.settings || {};
@@ -315,6 +317,14 @@ class FallcentAlertApp {
                 this.alerts = data.alerts;
                 console.log('💾 서버에서 받은 필터링된 알림:', Object.keys(this.alerts).map(k => `${k}: ${this.alerts[k].length}개`).join(', '));
                 
+                // 각 카테고리별 첫 번째 알림 샘플 출력
+                Object.keys(this.alerts).forEach(type => {
+                    if (this.alerts[type].length > 0) {
+                        const firstAlert = this.alerts[type][0];
+                        console.log(`  ${type} 첫 알림: ${firstAlert.product?.title?.substring(0, 30)}... (${firstAlert.product?.discountRate}%)`);
+                    }
+                });
+                
                 // 클라이언트에서 추가 필터링 (이중 보안)
                 this.filterAlertsForUser();
                 console.log('💾 클라이언트 추가 필터링 후:', Object.keys(this.alerts).map(k => `${k}: ${this.alerts[k].length}개`).join(', '));
@@ -323,7 +333,11 @@ class FallcentAlertApp {
                 const hasAlerts = Object.values(this.alerts).some(alertArray => alertArray.length > 0);
                 if (hasAlerts) {
                     console.log('🔇 초기 로드: 기존 알림 있음 - 소리 재생 안 함');
+                } else {
+                    console.log('⚠️ 초기 로드: 표시할 알림이 없음');
                 }
+            } else {
+                console.log('⚠️ 서버에서 알림 데이터를 받지 못함');
             }
             
             this.renderProducts();
@@ -376,7 +390,9 @@ class FallcentAlertApp {
 
         // 전체 알림 업데이트 (완전 교체) - 사용자별 필터링 후 최종 상태
         this.socket.on('alerts-updated', (data) => {
-            console.log('🔄 전체 알림 업데이트 수신 (사용자별 필터링 완료):', data);
+            console.log('🔄 전체 알림 업데이트 수신:', Object.keys(data.alerts).map(type => 
+                `${type}: ${data.alerts[type].length}개`
+            ).join(', '));
             
             // 이전 알림 상태 저장 (새로운 알림 감지용)
             const previousAlerts = JSON.parse(JSON.stringify(this.alerts));
@@ -550,21 +566,27 @@ class FallcentAlertApp {
     filterAlertsForUser() {
         console.log(`👤 사용자별 알림 필터링 시작 (User ID: ${this.userId}, 읽은 상품: ${this.userSeenProducts.size}개)`);
         
+        let totalAlerts = 0;
+        let totalFiltered = 0;
+        
         Object.keys(this.alerts).forEach(type => {
             const originalCount = this.alerts[type].length;
+            totalAlerts += originalCount;
+            
             const filteredAlerts = this.alerts[type].filter(alert => 
                 !this.isProductSeen(alert.productId)
             );
             const filteredCount = filteredAlerts.length;
+            totalFiltered += filteredCount;
             
-            if (originalCount > filteredCount) {
-                console.log(`🚫 ${type} 알림 필터링: ${originalCount}개 -> ${filteredCount}개 (${originalCount - filteredCount}개 제외)`);
+            if (originalCount > 0) {
+                console.log(`📊 ${type} 알림: ${originalCount}개 -> ${filteredCount}개 (필터링: ${originalCount - filteredCount}개)`);
             }
             
             this.updateAlertSection(type, filteredAlerts);
         });
         
-        console.log(`✅ 사용자별 알림 필터링 완료`);
+        console.log(`✅ 사용자별 알림 필터링 완료: 총 ${totalAlerts}개 중 ${totalFiltered}개 표시`);
     }
 
     updateAlertSection(type, alerts) {

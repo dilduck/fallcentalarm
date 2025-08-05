@@ -375,6 +375,10 @@ class StorageService {
         console.log(`📦 getAllProducts 호출 - 캐시에서 ${this.cache.currentProducts.length}개 상품 반환`);
         return this.cache.currentProducts;
     }
+    
+    getCurrentProducts() {
+        return this.getAllProducts();
+    }
 
     // === 통계 ===
     getStats() {

@@ -30,15 +30,21 @@ class AlertService {
             const priceChangedProducts = filteredProducts.filter(p => p.priceChanged?.changed && p.priceChanged.isDecrease);
             const alertProducts = [...newProducts, ...priceChangedProducts];
             
+            console.log(`🔎 알림 대상 상품: 새 상품 ${newProducts.length}개, 가격 인하 ${priceChangedProducts.length}개`);
+            
             // 중복 제거 (상품 ID 기준)
             const uniqueAlertProducts = this.removeDuplicateProducts(alertProducts);
             
             // 각 상품에 대해 우선순위가 가장 높은 카테고리로만 알림 생성 (중복 방지)
             // ✅ 먼저 모든 알림을 생성만 하고 저장은 하지 않음
+            console.log(`🔄 알림 생성 시작: ${uniqueAlertProducts.length}개 상품 검사`);
             for (const product of uniqueAlertProducts) {
                 const alert = this.createBestAlert(product, settings);
                 if (alert) {
                     alerts.push(alert);
+                    console.log(`✅ 알림 추가됨: ${alert.type} - ${product.title.substring(0, 30)}...`);
+                } else {
+                    console.log(`❌ 알림 생성 실패: ${product.title.substring(0, 30)}...`);
                 }
             }
             
@@ -51,6 +57,7 @@ class AlertService {
             // ✅ 정렬된 순서대로 활성 알림 DB에 저장
             for (const alert of limitedAlerts) {
                 this.storageService.addActiveAlert(alert.type, alert);
+                console.log(`💾 활성 알림 저장: ${alert.type} - ${alert.product.title.substring(0, 30)}...`);
             }
             
             // 🔇 사운드용 이벤트는 비활성화 (alerts-updated에서 처리)
@@ -64,7 +71,12 @@ class AlertService {
             // 현재 상품 저장
             this.storageService.updateCurrentProducts(filteredProducts);
             
-            console.log(`알림 처리 완료: ${limitedAlerts.length}개 새 알림 생성`);
+            console.log(`✅ 알림 처리 완료: ${limitedAlerts.length}개 새 알림 생성`);
+            console.log(`📊 현재 활성 알림 총계:`, Object.keys(this.storageService.getActiveAlerts()).map(type => {
+                const alerts = this.storageService.getActiveAlerts()[type];
+                return `${type}: ${alerts.length}개`;
+            }).join(', '));
+            
             return limitedAlerts;
             
         } catch (error) {
@@ -77,13 +89,18 @@ class AlertService {
         // 상품에 대해 가능한 모든 카테고리 확인하고 우선순위가 가장 높은 것 선택
         const possibleAlerts = [];
         
+        console.log(`🔍 알림 생성 검사: ${product.title.substring(0, 30)}... (할인율: ${product.discountRate}%, seen: ${product.seen}, priceChanged: ${product.priceChanged?.changed})`);
+        
         // 초특가 확인
         if (product.discountRate >= this.SUPER_DISCOUNT_THRESHOLD) {
+            console.log(`✅ 초특가 조건 충족: ${product.discountRate}% >= ${this.SUPER_DISCOUNT_THRESHOLD}%`);
             possibleAlerts.push({
                 type: 'super',
                 category: '초특가',
                 priority: 100 + Math.floor(product.discountRate / 10)
             });
+        } else {
+            console.log(`❌ 초특가 조건 미충족: ${product.discountRate}% < ${this.SUPER_DISCOUNT_THRESHOLD}%`);
         }
         
         // 전자제품 확인
@@ -116,9 +133,14 @@ class AlertService {
         }
         
         // 우선순위가 가장 높은 카테고리 선택
-        if (possibleAlerts.length === 0) return null;
+        if (possibleAlerts.length === 0) {
+            console.log(`⚠️ 가능한 알림 카테고리 없음: ${product.title.substring(0, 30)}...`);
+            return null;
+        }
         
+        console.log(`📊 가능한 알림 카테고리: ${possibleAlerts.map(a => `${a.type}(${a.priority})`).join(', ')}`);
         const bestAlert = possibleAlerts.sort((a, b) => b.priority - a.priority)[0];
+        console.log(`🎯 선택된 카테고리: ${bestAlert.type} (우선순위: ${bestAlert.priority})`);
         
         // 추가 우선순위 계산
         let finalPriority = bestAlert.priority;
@@ -233,15 +255,25 @@ class AlertService {
         const activeAlerts = this.storageService.getActiveAlerts();
         
         console.log('🔄 모든 클라이언트에게 사용자별 알림 전송 중...');
+        console.log('📊 현재 활성 알림 상태:', Object.keys(activeAlerts).map(type => 
+            `${type}: ${activeAlerts[type].length}개`
+        ).join(', '));
         
         // 각 연결된 클라이언트에게 사용자별 + 세션별 알림 전송
         const sockets = this.io.sockets.sockets;
+        let clientCount = 0;
+        
         sockets.forEach((socket) => {
             if (socket.sessionId) {
+                clientCount++;
                 console.log(`👤 클라이언트 ${socket.id} - 사용자 읽은 상품: ${socket.userSeenProducts?.size || 0}개`);
                 
                 // 사용자별 알림 필터링
                 const userFilteredAlerts = this.filterAlertsForUser(activeAlerts, socket.userSeenProducts || new Set());
+                
+                console.log(`📊 필터링 후:`, Object.keys(userFilteredAlerts).map(type => 
+                    `${type}: ${userFilteredAlerts[type].length}개`
+                ).join(', '));
                 
                 // 세션별 알림 업데이트
                 if (this.sessionAlertService) {
@@ -259,7 +291,7 @@ class AlertService {
             }
         });
         
-        console.log(`✅ 모든 클라이언트에게 사용자별 + 세션별 알림을 전송했습니다.`);
+        console.log(`✅ 총 ${clientCount}명의 클라이언트에게 사용자별 + 세션별 알림을 전송했습니다.`);
     }
 
     // 사용자별 알림 필터링 메서드

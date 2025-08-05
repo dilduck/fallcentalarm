@@ -1,0 +1,270 @@
+
+    <!-- 상품 1 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/007bff/white?text=Chair+1" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/1" style="text-decoration: none; color: #007bff;">상품 1/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [LIVE][10% 슈퍼적립]듀오백 브라보 프리미엄 BRP-200M 메쉬 사무용 컴퓨터 책상 공부 의자 일반베이스 무료택배</div>
+            <div>💳 <strong>대상 카드:</strong> 카드할인 없음</div>
+            <div>✅ <strong>최종 결제가:</strong> 406,600원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 66,224P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">340,376원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 2 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/28a745/white?text=Chair+2" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/2" style="text-decoration: none; color: #007bff;">상품 2/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [LIVE][10% 슈퍼적립]듀오백 브라보 프리미엄 BRP-200MW 메쉬 컴퓨터 책상 공부 의자 일반베이스 무료택배</div>
+            <div>💳 <strong>대상 카드:</strong> 카드할인 없음</div>
+            <div>✅ <strong>최종 결제가:</strong> 425,600원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 68,884P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">356,716원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 3 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/dc3545/white?text=Chair+3" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/3" style="text-decoration: none; color: #007bff;">상품 3/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [LIVE][10% 슈퍼적립]듀오백 브라보 프리미엄 BRP-200C 메쉬 컴퓨터 책상 공부 의자 일반베이스 무료택배</div>
+            <div>💳 <strong>대상 카드:</strong> CB, 신한카드, 네이버현대카드 (최대 23,880원)</div>
+            <div>✅ <strong>최종 결제가:</strong> 317,260원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 57,057P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">260,203원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 4 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/ffc107/black?text=Chair+4" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/4" style="text-decoration: none; color: #007bff;">상품 4/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [LIVE][10% 슈퍼적립]듀오백 브라보 프리미엄 BRP-200CW 메쉬 컴퓨터 책상 공부 의자 일반베이스 무료택배</div>
+            <div>💳 <strong>대상 카드:</strong> 카드할인 없음</div>
+            <div>✅ <strong>최종 결제가:</strong> 397,100원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 64,894P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">332,206원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 5 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/6f42c1/white?text=Chair+5" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/5" style="text-decoration: none; color: #007bff;">상품 5/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [LIVE][10% 슈퍼적립]듀오백 게임즈 DX2-C 컴퓨터 게이밍의자 일반베이스 무료택배</div>
+            <div>💳 <strong>대상 카드:</strong> 카드할인 없음</div>
+            <div>✅ <strong>최종 결제가:</strong> 330,600원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 55,584P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">275,016원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 6 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/20c997/white?text=Chair+6" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/6" style="text-decoration: none; color: #007bff;">상품 6/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [LIVE][10% 슈퍼적립]듀오백 게임즈 DX2-CW 컴퓨터 게이밍의자 일반베이스 무료택배</div>
+            <div>💳 <strong>대상 카드:</strong> 카드할인 없음</div>
+            <div>✅ <strong>최종 결제가:</strong> 349,600원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 23,284P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">326,316원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 7 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/fd7e14/white?text=Chair+7" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/7" style="text-decoration: none; color: #007bff;">상품 7/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [LIVE][10% 슈퍼적립]듀오백 게임즈 DX2-M 컴퓨터 게이밍의자 일반베이스 무료택배</div>
+            <div>💳 <strong>대상 카드:</strong> 카드할인 없음</div>
+            <div>✅ <strong>최종 결제가:</strong> 359,100원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 59,574P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">299,526원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 8 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/e83e8c/white?text=Chair+8" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/8" style="text-decoration: none; color: #007bff;">상품 8/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [LIVE][10% 슈퍼적립]듀오백 게임즈 DX2-MW 컴퓨터 게이밍의자 일반베이스 무료택배</div>
+            <div>💳 <strong>대상 카드:</strong> 카드할인 없음</div>
+            <div>✅ <strong>최종 결제가:</strong> 378,100원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 62,234P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">315,866원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 9 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/17a2b8/white?text=Chair+9" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/9" style="text-decoration: none; color: #007bff;">상품 9/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [LIVE][N배송]듀오백 밀키 초등학생 어린이 의자(발받침+스탑캐스터)</div>
+            <div>💳 <strong>대상 카드:</strong> CB, 신한카드, 네이버현대카드 (최대 8,520원)</div>
+            <div>✅ <strong>최종 결제가:</strong> 113,080원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 11,812P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">101,268원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 10 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/6c757d/white?text=Chair+10" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/10" style="text-decoration: none; color: #007bff;">상품 10/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [LIVE][10% 슈퍼적립]듀오백 QA 서울대 책상의자 높이조절형 (QA61S)</div>
+            <div>💳 <strong>대상 카드:</strong> 카드할인 없음</div>
+            <div>✅ <strong>최종 결제가:</strong> 127,000원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 24,890P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">102,110원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 11 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/343a40/white?text=Chair+11" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/11" style="text-decoration: none; color: #007bff;">상품 11/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [LIVE][10% 슈퍼적립]듀오백 QAW 서울대 책상의자 높이조절형 (QA6W1S)</div>
+            <div>💳 <strong>대상 카드:</strong> 카드할인 없음</div>
+            <div>✅ <strong>최종 결제가:</strong> 137,000원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 26,590P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">110,410원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 12 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/198754/white?text=Chair+12" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/12" style="text-decoration: none; color: #007bff;">상품 12/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [10% 슈퍼적립][내일출발]듀오백 Q1 메쉬 사무용 컴퓨터 책상 의자</div>
+            <div>💳 <strong>대상 카드:</strong> 카드할인 없음</div>
+            <div>✅ <strong>최종 결제가:</strong> 147,000원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 28,290P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">118,710원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 13 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/b21f2d/white?text=Chair+13" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/13" style="text-decoration: none; color: #007bff;">상품 13/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [10% 슈퍼적립][내일출발]듀오백 Q1 AIRO 메쉬 사무용 컴퓨터 책상 의자 일반베이스</div>
+            <div>💳 <strong>대상 카드:</strong> CB, 신한카드, 네이버현대카드 (최대 15,700원)</div>
+            <div>✅ <strong>최종 결제가:</strong> 208,500원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 40,688P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">167,812원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 14 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/e0a800/white?text=Chair+14" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/14" style="text-decoration: none; color: #007bff;">상품 14/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [10% 슈퍼적립]듀오백 DK-073B 서울대 책상 공부 의자</div>
+            <div>💳 <strong>대상 카드:</strong> 카드할인 없음</div>
+            <div>✅ <strong>최종 결제가:</strong> 124,000원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 24,380P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">99,620원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 15 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/553d94/white?text=Chair+15" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/15" style="text-decoration: none; color: #007bff;">상품 15/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [10% 슈퍼적립]듀오백 D-ZERO A 사무용 컴퓨터 책상 의자</div>
+            <div>💳 <strong>대상 카드:</strong> 카드할인 없음</div>
+            <div>✅ <strong>최종 결제가:</strong> 184,000원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 34,580P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">149,420원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 16 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/138496/white?text=Chair+16" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/16" style="text-decoration: none; color: #007bff;">상품 16/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [10% 슈퍼적립]듀오백 D-ZERO AW 사무용 컴퓨터 책상 의자</div>
+            <div>💳 <strong>대상 카드:</strong> 카드할인 없음</div>
+            <div>✅ <strong>최종 결제가:</strong> 193,800원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 36,246P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">157,554원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 17 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/ca4c32/white?text=Chair+17" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/17" style="text-decoration: none; color: #007bff;">상품 17/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [10% 슈퍼적립]듀오백 Q7-05HLDA-M 메쉬 사무용 컴퓨터 책상 의자 일반베이스 무료택배</div>
+            <div>💳 <strong>대상 카드:</strong> 카드할인 없음</div>
+            <div>✅ <strong>최종 결제가:</strong> 273,600원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 47,604P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">225,996원</span></div>
+        </div>
+    </div>
+
+    <!-- 상품 18 -->
+    <div style="background: white; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <img src="https://via.placeholder.com/400x300/495057/white?text=Chair+18" alt="상품 썸네일" style="width: 100%; max-width: 400px; height: auto; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+            <a href="https://example.com/product/18" style="text-decoration: none; color: #007bff;">상품 18/18</a>
+        </div>
+        <div style="font-size:16px; line-height:1.6;">
+            <div>📄 <strong>제품명 :</strong> [10% 슈퍼적립]듀오백 Q7-05HLDA-MW 메쉬 사무용 컴퓨터 책상 의자 일반베이스 무료택배</div>
+            <div>💳 <strong>대상 카드:</strong> 카드할인 없음</div>
+            <div>✅ <strong>최종 결제가:</strong> 292,600원</div>
+            <div>✅ <strong>포인트 적립:</strong> 최대 50,264P</div>
+            <div>🧮 <strong>최대 체감가:</strong> <span style="color:#d50000; font-weight:bold;">242,336원</span></div>
+        </div>
+    </div>

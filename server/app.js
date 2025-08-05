@@ -83,7 +83,13 @@ class FallcentAlert {
     // 사용자별 알림 필터링 메서드
     filterAlertsForUser(globalAlerts, userSeenProducts) {
         console.log(`👤 사용자별 필터링 시작, 읽은 상품: ${userSeenProducts.size}개`);
-        console.log(`👤 읽은 상품 목록:`, Array.from(userSeenProducts));
+        
+        // 읽은 상품 목록 출력 (디버깅용)
+        if (userSeenProducts.size > 0 && userSeenProducts.size <= 10) {
+            console.log(`📋 읽은 상품 ID 목록:`, Array.from(userSeenProducts));
+        } else if (userSeenProducts.size > 10) {
+            console.log(`📋 읽은 상품 ID 목록 (처음 10개):`, Array.from(userSeenProducts).slice(0, 10));
+        }
         
         const filteredAlerts = {
             super: [],
@@ -97,18 +103,18 @@ class FallcentAlert {
             
             filteredAlerts[type] = globalAlerts[type].filter(alert => {
                 const isSeenByUser = userSeenProducts.has(alert.productId);
-                if (isSeenByUser) {
-                    console.log(`👤 사용자별 필터링: ${alert.productId} - ${alert.product?.title}`);
-                }
                 return !isSeenByUser;
             });
             
-            if (originalCount > filteredAlerts[type].length) {
-                console.log(`👤 사용자별 ${type} 알림 필터링: ${originalCount}개 -> ${filteredAlerts[type].length}개`);
+            if (originalCount !== filteredAlerts[type].length) {
+                console.log(`👤 ${type} 알림: ${originalCount}개 -> ${filteredAlerts[type].length}개 (필터링: ${originalCount - filteredAlerts[type].length}개)`);
             }
         });
         
-        console.log(`👤 사용자별 필터링 완료`);
+        const totalOriginal = Object.values(globalAlerts).reduce((sum, alerts) => sum + alerts.length, 0);
+        const totalFiltered = Object.values(filteredAlerts).reduce((sum, alerts) => sum + alerts.length, 0);
+        console.log(`👤 사용자별 필터링 완료: 총 ${totalOriginal}개 -> ${totalFiltered}개`);
+        
         return filteredAlerts;
     }
 
@@ -136,8 +142,13 @@ class FallcentAlert {
                 const sessionAlerts = this.sessionAlertService.initSession(sessionId, userFilteredAlerts);
                 
                 // 클라이언트에게 세션별 데이터 전송
+                console.log(`📤 초기 데이터 전송 준비:`);
+                console.log(`  - 글로벌 알림:`, Object.keys(globalAlerts).map(type => `${type}: ${globalAlerts[type].length}개`).join(', '));
+                console.log(`  - 사용자 필터링 후:`, Object.keys(userFilteredAlerts).map(type => `${type}: ${userFilteredAlerts[type].length}개`).join(', '));
+                console.log(`  - 세션 필터링 후:`, Object.keys(sessionAlerts).map(type => `${type}: ${sessionAlerts[type].length}개`).join(', '));
+                
                 socket.emit('initial-data', {
-                    products: this.storageService.getAllProducts(),
+                    products: this.storageService.getCurrentProducts(), // getAllProducts 대신 getCurrentProducts 사용
                     settings: this.storageService.getSettings(),
                     stats: {
                         ...this.storageService.getStats(),
@@ -145,6 +156,8 @@ class FallcentAlert {
                     },
                     alerts: sessionAlerts
                 });
+                
+                console.log(`✅ 초기 데이터 전송 완료: ${socket.id}`);
             });
             
             // 수동 크롤링 요청

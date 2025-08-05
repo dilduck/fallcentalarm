@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(python:*)",
+      "Bash(npm start)",
+      "Bash(node:*)",
+      "Bash(pip --version)",
+      "Bash(pip show:*)",
+      "Bash(pkill:*)",
+      "Bash(taskkill:*)",
+      "Bash(curl:*)",
+      "Bash(pm2 restart:*)",
+      "Bash(rm:*)",
+      "Bash(npm run start:*)",
+      "Bash(dir:*)",
+      "Bash(jq:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": []
+  }
+}

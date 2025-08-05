@@ -1,0 +1,17 @@
+{
+  "timestamp": "2025-07-22T20:16:55.749Z",
+  "site": {
+    "total": 127,
+    "rocket": 99,
+    "superDeal": 3
+  },
+  "server": {
+    "rocket": 34
+  },
+  "comparison": {
+    "common": 31,
+    "serverOnly": 3,
+    "siteOnly": 59,
+    "collectionRate": 34.4
+  }
+}
