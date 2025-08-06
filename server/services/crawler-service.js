@@ -114,40 +114,6 @@ class CrawlerService {
                 });
             }
             
-            // 4차: 모든 div를 검사해서 가전/디지털 상품이 많이 있는 섹션 찾기
-            if (!electronicsDiv || electronicsDiv.length === 0) {
-                console.log('🔍 모든 div를 검사하여 가전/디지털 섹션을 찾습니다...');
-                let bestCandidate = null;
-                let maxElectronicProducts = 0;
-                
-                $('div').each((i, element) => {
-                    const $el = $(element);
-                    const products = $el.find('.small_product_div');
-                    if (products.length >= 5) { // 최소 5개 이상의 상품이 있는 섹션
-                        let electronicCount = 0;
-                        products.each((j, prod) => {
-                            const $prod = $(prod);
-                            const title = $prod.find('.another_item_name').text() || 
-                                         $prod.find('img').attr('alt') || '';
-                            
-                            // 전자제품 키워드로 확인
-                            if (this.isElectronicByKeyword(title)) {
-                                electronicCount++;
-                            }
-                        });
-                        
-                        if (electronicCount > maxElectronicProducts && electronicCount >= Math.floor(products.length * 0.3)) {
-                            maxElectronicProducts = electronicCount;
-                            bestCandidate = $el;
-                        }
-                    }
-                });
-                
-                if (bestCandidate) {
-                    electronicsDiv = bestCandidate;
-                    console.log(`✅ 추론으로 가전/디지털 섹션을 찾았습니다. 전자제품 ${maxElectronicProducts}개 감지`);
-                }
-            }
             
             if (electronicsDiv && electronicsDiv.length > 0) {
                 console.log('🔍 가전/디지털 카테고리 섹션에서 상품 ID 추출 중...');
@@ -201,25 +167,6 @@ class CrawlerService {
         return electronicProductIds;
     }
 
-    // 키워드로 전자제품 여부 확인하는 헬퍼 함수
-    isElectronicByKeyword(title) {
-        if (!title) return false;
-        
-        const electronicKeywords = [
-            '블루투스', '이어폰', '버즈', '에어팟', '헤드폰', '헤드셋',
-            '갤럭시', '아이폰', '스마트폰', '휴대폰', '스마트워치',
-            '노트북', '맥북', '컴퓨터', '데스크탑', 'PC', '모니터',
-            'TV', '텔레비전', '디스플레이', '프로젝터',
-            '키보드', '마우스', '스피커', '웹캠', '마이크',
-            'SSD', 'HDD', '메모리', 'USB', '외장하드',
-            '냉장고', '세탁기', '건조기', '에어컨', '정수기', '공기청정기',
-            '전자레인지', '에어프라이어', '믹서', '블렌더', '전기밥솥',
-            '충전기', '보조배터리', '무선충전', '어댑터', '케이블'
-        ];
-        
-        const lowerTitle = title.toLowerCase();
-        return electronicKeywords.some(keyword => lowerTitle.includes(keyword.toLowerCase()));
-    }
 
     extractProducts($, electronicProductIds) {
         const products = [];
@@ -629,60 +576,10 @@ class CrawlerService {
     }
 
     isElectronicProduct(fullId, title, electronicProductIds) {
-        // 1차: 카테고리 기반 확인 (VB.NET처럼)
+        // 카테고리 기반 확인만 사용 (id="가전/디지털" div 내의 상품만 전자제품으로 분류)
         if (electronicProductIds.has(fullId)) {
+            console.log(`🔧 가전/디지털 카테고리 상품: ${title} (${fullId})`);
             return true;
-        }
-        
-        // 2차: 키워드 기반 확인 (VB.NET의 IsKeywordProduct 로직 참고)
-        if (!title) return false;
-        
-        // VB.NET에서 사용된 전자제품 키워드 목록
-        const electronicKeywords = [
-            // 무선이어폰 관련
-            '블루투스', '이어폰', '버즈', '에어팟', '이어버드', '헤드폰', '헤드셋',
-            
-            // 휴대폰 관련  
-            '갤럭시', '아이폰', '스마트폰', '휴대폰', '폰케이스', '스마트워치',
-            
-            // 컴퓨터 관련
-            '노트북', '맥북', '컴퓨터', '데스크탑', 'PC', '모니터', 'CPU', 'GPU',
-            
-            // 디스플레이 관련
-            'TV', '텔레비전', '모니터', '디스플레이', '프로젝터',
-            
-            // 주변기기
-            '키보드', '마우스', '스피커', '웹캠', '마이크',
-            
-            // 저장장치
-            'SSD', 'HDD', '메모리', 'USB', '외장하드', 'SD카드',
-            
-            // 대형가전
-            '냉장고', '세탁기', '건조기', '에어컨', '정수기', '공기청정기',
-            
-            // 소형가전  
-            '전자레인지', '에어프라이어', '믹서', '블렌더', '전기밥솥', '인덕션',
-            '토스터', '전기포트', '커피머신', '전기면도기', '드라이어', '고데기',
-            
-            // 충전기/전원 관련
-            '충전기', '보조배터리', '무선충전', '어댑터', '케이블', '선풍기',
-            
-            // 게임 관련
-            '게임기', '콘솔', '조이스틱', '게임패드', 'VR',
-            
-            // 기타 전자제품
-            '태블릿', '전자책', '스마트밴드', '액션캠', '드론', '로봇청소기'
-        ];
-        
-        // 대소문자 구분 없이 검색
-        const lowerTitle = title.toLowerCase();
-        
-        // 키워드 포함 여부 확인
-        for (const keyword of electronicKeywords) {
-            if (lowerTitle.includes(keyword.toLowerCase())) {
-                console.log(`🔧 키워드 기반 전자제품 매칭: '${title}' -> '${keyword}'`);
-                return true;
-            }
         }
         
         return false;
