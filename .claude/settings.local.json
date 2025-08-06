@@ -16,7 +16,8 @@
       "Bash(dir:*)",
       "Bash(jq:*)",
       "Bash(git add:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }

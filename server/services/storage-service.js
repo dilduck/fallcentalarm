@@ -480,9 +480,9 @@ class StorageService {
             return a.product.price - b.product.price;
         });
         
-        // 최대 5개까지만 유지
-        if (this.cache.activeAlerts[alertType].length > 5) {
-            this.cache.activeAlerts[alertType] = this.cache.activeAlerts[alertType].slice(0, 5);
+        // 최대 10개까지만 유지 (기존 5개에서 증가)
+        if (this.cache.activeAlerts[alertType].length > 10) {
+            this.cache.activeAlerts[alertType] = this.cache.activeAlerts[alertType].slice(0, 10);
         }
         
         this.saveObjectToFile(this.cache.activeAlerts, this.paths.activeAlerts);
