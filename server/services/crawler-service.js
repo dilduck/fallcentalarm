@@ -1,66 +1,34 @@
-const puppeteer = require('puppeteer');
+const axios = require('axios');
 const cheerio = require('cheerio');
 
 class CrawlerService {
     constructor(storageService) {
         this.storageService = storageService;
-        this.browser = null;
         this.SUPER_DISCOUNT_THRESHOLD = 49;
     }
 
-    async getBrowser() {
-        if (!this.browser) {
-            this.browser = await puppeteer.launch({
-                headless: true,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
-                    '--no-first-run',
-                    '--no-zygote',
-                    '--disable-gpu'
-                ]
-            });
-        }
-        return this.browser;
-    }
-
     async crawlFallcent() {
-        let page = null;
         try {
             console.log('폴센트 크롤링 시작...');
             
-            const browser = await this.getBrowser();
-            page = await browser.newPage();
-            
-            // User-Agent 설정 (봇 감지 회피)
-            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
-            
-            // 타임아웃 설정
-            await page.setDefaultTimeout(30000);
-            
-            // 폴센트 메인 페이지 접속
-            await page.goto('https://fallcent.com/', {
-                waitUntil: 'networkidle0',
-                timeout: 30000
+            // HTTP 요청으로 HTML 가져오기
+            const response = await axios.get('https://fallcent.com/', {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                },
+                timeout: 30000, // 30초 타임아웃
+                maxRedirects: 5
             });
 
-            // 페이지 로딩 대기
-            await page.waitForSelector('.small_product_div', { timeout: 10000 });
-
-            // 스크롤하여 모든 상품 로드
-            console.log('페이지 스크롤하여 모든 상품 로드 중...');
-            await this.autoScroll(page);
-            
-            // 스크롤 후 잠시 대기
-            await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 2000)));
-
-            // HTML 가져오기
-            const html = await page.content();
+            console.log(`응답 상태: ${response.status}`);
             
             // Cheerio로 파싱
-            const $ = cheerio.load(html);
+            const $ = cheerio.load(response.data);
             
             // 가전/디지털 카테고리 상품 ID 먼저 추출
             const electronicProductIds = this.extractElectronicProductIds($);
@@ -73,12 +41,22 @@ class CrawlerService {
             return products;
             
         } catch (error) {
-            console.error('크롤링 중 오류:', error);
-            throw error;
-        } finally {
-            if (page) {
-                await page.close();
+            console.error('크롤링 중 오류:', error.message);
+            
+            // 타임아웃 오류인 경우
+            if (error.code === 'ECONNABORTED') {
+                console.error('⏱️ 요청 타임아웃. 네트워크 상태를 확인하세요.');
             }
+            // 네트워크 오류인 경우
+            else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+                console.error('🌐 네트워크 연결 오류. 인터넷 연결을 확인하세요.');
+            }
+            // HTTP 오류인 경우
+            else if (error.response) {
+                console.error(`🚫 HTTP 오류: ${error.response.status} ${error.response.statusText}`);
+            }
+            
+            throw error;
         }
     }
 
@@ -650,13 +628,6 @@ class CrawlerService {
         return { changed: false };
     }
 
-    async closeBrowser() {
-        if (this.browser) {
-            await this.browser.close();
-            this.browser = null;
-        }
-    }
-
     isElectronicProduct(fullId, title, electronicProductIds) {
         // 1차: 카테고리 기반 확인 (VB.NET처럼)
         if (electronicProductIds.has(fullId)) {
@@ -716,25 +687,6 @@ class CrawlerService {
         
         return false;
     }
-
-    async autoScroll(page) {
-        await page.evaluate(async () => {
-            await new Promise((resolve) => {
-                let totalHeight = 0;
-                const distance = 100;
-                const timer = setInterval(() => {
-                    const scrollHeight = document.body.scrollHeight;
-                    window.scrollBy(0, distance);
-                    totalHeight += distance;
-
-                    if(totalHeight >= scrollHeight){
-                        clearInterval(timer);
-                        resolve();
-                    }
-                }, 100);
-            });
-        });
-    }
 }
 
-module.exports = CrawlerService; 
+module.exports = CrawlerService;
