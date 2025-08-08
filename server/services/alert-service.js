@@ -304,9 +304,15 @@ class AlertService {
         };
         
         Object.keys(globalAlerts).forEach(type => {
-            filteredAlerts[type] = globalAlerts[type].filter(alert => 
-                !userSeenProducts.has(alert.productId)
-            );
+            filteredAlerts[type] = globalAlerts[type].filter(alert => {
+                // 새로운 상품(글로벌하게도 처음 본 상품)은 항상 표시
+                if (!alert.product.seen) {
+                    console.log(`🆕 새 상품은 필터링 우회: ${alert.product.title.substring(0, 30)}...`);
+                    return true;
+                }
+                // 기존 상품은 사용자가 보지 않은 것만 표시
+                return !userSeenProducts.has(alert.productId);
+            });
         });
         
         return filteredAlerts;

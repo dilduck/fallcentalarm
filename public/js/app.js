@@ -573,9 +573,15 @@ class FallcentAlertApp {
             const originalCount = this.alerts[type].length;
             totalAlerts += originalCount;
             
-            const filteredAlerts = this.alerts[type].filter(alert => 
-                !this.isProductSeen(alert.productId)
-            );
+            const filteredAlerts = this.alerts[type].filter(alert => {
+                // 새로운 상품(글로벌하게도 처음 본 상품)은 항상 표시
+                if (alert.product && !alert.product.seen) {
+                    console.log(`🆕 새 상품은 필터링 우회: ${alert.product.title.substring(0, 30)}...`);
+                    return true;
+                }
+                // 기존 상품은 사용자가 보지 않은 것만 표시
+                return !this.isProductSeen(alert.productId);
+            });
             const filteredCount = filteredAlerts.length;
             totalFiltered += filteredCount;
             
@@ -1120,13 +1126,19 @@ class FallcentAlertApp {
             currTypeAlerts.forEach(alert => {
                 const isNewAlert = !prevTypeAlerts.some(prevAlert => prevAlert.id === alert.id);
                 if (isNewAlert) {
-                    // 🔧 사용자가 이미 본 상품인지 다시 한번 확인
-                    const isSeenByUser = this.isProductSeen(alert.productId);
-                    if (!isSeenByUser) {
-                        console.log(`✅ 새 알림 발견: ${type} - ${alert.product?.title?.substring(0, 30)}...`);
+                    // 🆕 새로운 상품(글로벌하게도 처음 본 상품)은 항상 알림 표시
+                    if (alert.product && !alert.product.seen) {
+                        console.log(`🆕 새 상품 알림 발견: ${type} - ${alert.product?.title?.substring(0, 30)}...`);
                         newAlerts.push({ ...alert, type: type });
                     } else {
-                        console.log(`🔇 새 알림이지만 이미 본 상품: ${alert.productId}`);
+                        // 기존 상품은 사용자가 보지 않은 것만 표시
+                        const isSeenByUser = this.isProductSeen(alert.productId);
+                        if (!isSeenByUser) {
+                            console.log(`✅ 새 알림 발견: ${type} - ${alert.product?.title?.substring(0, 30)}...`);
+                            newAlerts.push({ ...alert, type: type });
+                        } else {
+                            console.log(`🔇 새 알림이지만 이미 본 상품: ${alert.productId}`);
+                        }
                     }
                 }
             });
