@@ -192,6 +192,17 @@ class FallcentAlert {
                 });
             });
             
+            // 세션 데이터 초기화 처리
+            socket.on('reset-session-data', () => {
+                console.log(`🧹 세션 데이터 초기화 요청: ${socket.sessionId}`);
+                
+                // 세션별 닫힌 알림 목록 초기화
+                if (socket.sessionId) {
+                    this.sessionAlertService.resetSessionClosedAlerts(socket.sessionId);
+                    console.log(`✅ 세션 ${socket.sessionId}의 닫힌 알림 목록 초기화 완료`);
+                }
+            });
+            
             // 상품 차단 처리
             socket.on('ban-product', (productData) => {
                 this.storageService.banProduct(productData.id, productData.title);
@@ -202,7 +213,7 @@ class FallcentAlert {
                 this.io.emit('product-banned', productData);
             });
             
-            // 🔧 사용자별 알림 닫기 처리 (전역 저장소 사용 안함)
+            // 🔧 사용자별 알림 닫기 처리
             socket.on('close-alert', (data) => {
                 const { alertId, productId, sessionId } = data;
                 console.log(`🔧 사용자별 알림 닫기 요청: ${sessionId} -> ${alertId}, 상품: ${productId}`);
@@ -214,10 +225,14 @@ class FallcentAlert {
                 socket.userSeenProducts.add(productId);
                 console.log(`👤 사용자별 읽은 상품 추가: ${productId} (총 ${socket.userSeenProducts.size}개)`);
                 
-                // 2. 세션에서 알림 닫기
+                // 2. 글로벌 읽은 상품 목록에도 추가 (충원 시 제외하기 위해)
+                this.storageService.markProductAsSeen(productId);
+                console.log(`🌍 글로벌 읽은 상품 목록에도 추가: ${productId}`);
+                
+                // 3. 세션에서 알림 닫기
                 this.sessionAlertService.closeAlertInSession(sessionId, alertId);
                 
-                // 3. 알림 충원 - 전역 저장소에서 제거하고 새로운 알림 추가
+                // 4. 알림 충원 - 전역 저장소에서 제거하고 새로운 알림 추가
                 const removed = this.storageService.removeActiveAlert(alertId);
                 if (removed) {
                     console.log(`🔄 알림 충원 시작...`);
@@ -227,7 +242,7 @@ class FallcentAlert {
                     this.alertService.sendAllAlertsToClients();
                 }
                 
-                // 4. 해당 세션에만 업데이트된 알림 전송
+                // 5. 해당 세션에만 업데이트된 알림 전송
                 const sessionAlerts = this.sessionAlertService.getSessionAlerts(sessionId);
                 socket.emit('alerts-updated', {
                     alerts: sessionAlerts,
@@ -235,7 +250,7 @@ class FallcentAlert {
                     replace: true
                 });
                 
-                // 5. 통계 업데이트 전송
+                // 6. 통계 업데이트 전송
                 socket.emit('stats-updated', {
                     viewedProductsCount: socket.userSeenProducts.size
                 });

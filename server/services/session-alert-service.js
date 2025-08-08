@@ -121,6 +121,20 @@ class SessionAlertService {
         this.sessionAlerts.delete(sessionId);
         // 닫힌 알림 정보는 유지 (재연결 시 복원용)
     }
+    
+    // 세션별 닫힌 알림 초기화
+    resetSessionClosedAlerts(sessionId) {
+        console.log(`🔄 세션 ${sessionId}의 닫힌 알림 목록 초기화`);
+        
+        if (this.sessionClosedAlerts.has(sessionId)) {
+            const previousSize = this.sessionClosedAlerts.get(sessionId).size;
+            this.sessionClosedAlerts.set(sessionId, new Set());
+            console.log(`✅ 세션 ${sessionId}에서 ${previousSize}개의 닫힌 알림이 초기화됨`);
+        } else {
+            this.sessionClosedAlerts.set(sessionId, new Set());
+            console.log(`✅ 세션 ${sessionId}의 닫힌 알림 목록 새로 생성됨`);
+        }
+    }
 
     // 세션 통계
     getSessionStats() {

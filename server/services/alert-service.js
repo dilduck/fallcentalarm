@@ -163,8 +163,8 @@ class AlertService {
         // 소리 정보 생성
         const soundInfo = this.getAlertSound(bestAlert.type, settings);
         
-        // 고유한 알림 ID 생성 
-        const alertId = `${bestAlert.type}_${product.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        // 고유한 알림 ID 생성 - 상품 ID와 타입 기반으로만 생성 (재생성시 동일한 ID 유지)
+        const alertId = `${bestAlert.type}_${product.id}`;
         
         console.log(`🔔 알림 생성: ${bestAlert.category} - ${product.title.substring(0, 30)}... (${product.discountRate}%)`);
         console.log(`🆔 생성된 알림 ID: ${alertId}`);
@@ -421,26 +421,35 @@ class AlertService {
         const activeAlerts = this.storageService.getActiveAlerts();
         const settings = this.storageService.getSettings();
         
+        // 모든 카테고리에 있는 productId를 수집하여 중복 방지
+        const allProductIds = new Set();
+        Object.values(activeAlerts).forEach(alerts => {
+            alerts.forEach(alert => allProductIds.add(alert.productId));
+        });
+        console.log(`📊 전체 활성 알림의 고유 상품 수: ${allProductIds.size}개`);
+        
         Object.keys(activeAlerts).forEach(alertType => {
             const currentAlerts = activeAlerts[alertType];
             const maxAlerts = 5; // 카테고리별 최대 알림 수
             
             if (currentAlerts.length < maxAlerts) {
                 const needed = maxAlerts - currentAlerts.length;
-                const currentProductIds = currentAlerts.map(alert => alert.productId);
+                console.log(`🔄 ${alertType} 카테고리 충원 필요: ${needed}개 (현재 ${currentAlerts.length}/${maxAlerts})`);
                 
                 // 다음으로 좋은 상품들 찾기
                 for (let i = 0; i < needed; i++) {
-                    const nextProduct = this.storageService.getNextBestAlert(alertType, currentProductIds);
+                    // 모든 카테고리의 productId를 제외 목록으로 전달
+                    const nextProduct = this.storageService.getNextBestAlert(alertType, Array.from(allProductIds));
                     
                     if (nextProduct) {
                         const newAlert = this.createBestAlert(nextProduct, settings);
                         if (newAlert) {
                             this.storageService.addActiveAlert(alertType, newAlert);
-                            currentProductIds.push(nextProduct.id);
-                            console.log(`🔄 새 알림 충원: ${alertType} - ${nextProduct.title.substring(0, 30)}...`);
+                            allProductIds.add(nextProduct.id); // 전체 목록에도 추가
+                            console.log(`✅ 새 알림 충원: ${alertType} - ${nextProduct.title.substring(0, 30)}... (할인율: ${nextProduct.discountRate}%)`);
                         }
                     } else {
+                        console.log(`❌ ${alertType} 카테고리에 추가할 상품이 더 없음`);
                         break; // 더 이상 추가할 상품이 없음
                     }
                 }

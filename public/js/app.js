@@ -456,8 +456,16 @@ class FallcentAlertApp {
         
         // 문서 레벨에서 이벤트 위임 처리
         this.documentClickHandler = (e) => {
+            console.log('🖱️ 클릭 이벤트 발생:', e.target);
+            console.log('클릭된 요소의 클래스:', e.target.className);
+            console.log('클릭된 요소의 HTML:', e.target.outerHTML);
+            
             const button = e.target.closest('.alert-action-btn');
-            if (!button) return;
+            if (!button) {
+                console.log('⏭️ alert-action-btn이 아님');
+                console.log('가장 가까운 버튼 찾기 시도:', e.target.closest('button'));
+                return;
+            }
             
             e.preventDefault();
             e.stopPropagation();
@@ -466,18 +474,34 @@ class FallcentAlertApp {
             const alertId = button.dataset.alertId;
             const productId = button.dataset.productId;
             
-            console.log(`🔧 문서 레벨 이벤트 처리: ${action}, Alert ID: ${alertId}, Product ID: ${productId}`);
+            console.log(`🔧 문서 레벨 이벤트 처리:`, {
+                action,
+                alertId,
+                productId,
+                dataset: button.dataset
+            });
+            
+            if (!action) {
+                console.error('❌ 버튼에 data-action이 없습니다');
+                return;
+            }
             
             switch (action) {
                 case 'open':
                     this.openProduct(button.dataset.productUrl, productId);
                     break;
                 case 'close':
+                    if (!alertId || !productId) {
+                        console.error('❌ 닫기 버튼에 필요한 데이터가 없습니다:', { alertId, productId });
+                        return;
+                    }
                     this.closeAlert(alertId, productId);
                     break;
                 case 'ban':
                     this.banProduct(productId, button.dataset.productTitle);
                     break;
+                default:
+                    console.error('❌ 알 수 없는 action:', action);
             }
         };
         
@@ -574,6 +598,12 @@ class FallcentAlertApp {
             totalAlerts += originalCount;
             
             const filteredAlerts = this.alerts[type].filter(alert => {
+                // 이미 닫은 알림은 제외
+                if (this.closedAlerts.has(alert.id)) {
+                    console.log(`🚫 이미 닫은 알림 제외: ${alert.id}`);
+                    return false;
+                }
+                
                 // 새로운 상품(글로벌하게도 처음 본 상품)은 항상 표시
                 if (alert.product && !alert.product.seen) {
                     console.log(`🆕 새 상품은 필터링 우회: ${alert.product.title.substring(0, 30)}...`);
@@ -613,21 +643,60 @@ class FallcentAlertApp {
         
         const alertsHtml = sortedAlerts.map(alert => this.createAlertHTML(alert)).join('');
         section.innerHTML = alertsHtml;
+        
+        // DOM이 제대로 생성되었는지 확인
+        const buttons = section.querySelectorAll('.alert-action-btn');
+        console.log(`📌 ${type} 섹션에 ${buttons.length}개의 버튼 생성됨`);
+        buttons.forEach(btn => {
+            if (btn.dataset.action === 'close') {
+                console.log(`🔘 닫기 버튼 - alertId: ${btn.dataset.alertId}, productId: ${btn.dataset.productId}`);
+            }
+        });
     }
 
     createAlertHTML(alert) {
         const product = alert.product;
         const priceStr = new Intl.NumberFormat('ko-KR').format(product.price);
         
+        // 디버깅: alert 객체 확인
+        if (!alert.id) {
+            console.error('❌ 알림 ID가 없습니다:', alert);
+        }
+        if (!product.id) {
+            console.error('❌ 상품 ID가 없습니다:', product);
+        }
+        
+        // HTML 특수문자 이스케이프 함수
+        const escapeHtml = (str) => {
+            if (!str) return '';
+            return str.replace(/[&<>"']/g, (char) => {
+                const escapeChars = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                };
+                return escapeChars[char];
+            });
+        };
+        
+        const safeTitle = escapeHtml(product.title);
+        const safeProductUrl = escapeHtml(product.productUrl);
+        const safeImageUrl = escapeHtml(product.imageUrl);
+        // alert.id와 product.id는 이스케이프하지 않음 (ID는 특수문자를 포함하지 않음)
+        const safeAlertId = alert.id || '';
+        const safeProductId = product.id || '';
+        
         return `
             <div class="alert-item border-b border-gray-200 pb-3 mb-3 last:border-b-0 last:pb-0 last:mb-0">
                 <div class="flex items-start space-x-3">
-                    <img src="${product.imageUrl}" alt="${product.title}" 
+                    <img src="${safeImageUrl}" alt="${safeTitle}" 
                          class="w-12 h-12 object-cover rounded flex-shrink-0"
                          onerror="this.src='/images/no-image.png'">
                     <div class="flex-1 min-w-0">
-                        <h4 class="text-sm font-medium text-gray-900 truncate" title="${product.title}">
-                            ${product.title}
+                        <h4 class="text-sm font-medium text-gray-900 truncate" title="${safeTitle}">
+                            ${safeTitle}
                         </h4>
                         <div class="mt-1 flex items-center space-x-2">
                             <span class="text-lg font-bold text-red-600">${product.discountRate}%</span>
@@ -639,16 +708,16 @@ class FallcentAlertApp {
                             ${product.isElectronic ? '<span class="px-1 py-0.5 text-xs bg-purple-100 text-purple-600 rounded">가전</span>' : ''}
                         </div>
                         <div class="mt-2 flex space-x-2">
-                            <button data-action="open" data-product-url="${product.productUrl}" data-product-id="${product.id}" 
+                            <button data-action="open" data-product-url="${safeProductUrl}" data-product-id="${safeProductId}" 
                                     class="alert-action-btn text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700">
                                 보기
                             </button>
-                            <button data-action="close" data-alert-id="${alert.id}" data-product-id="${product.id}" 
+                            <button data-action="close" data-alert-id="${safeAlertId}" data-product-id="${safeProductId}" 
                                     class="alert-action-btn text-xs bg-gray-400 text-white px-2 py-1 rounded hover:bg-gray-500"
-                                    title="Alert ID: ${alert.id}">
+                                    title="Alert ID: ${safeAlertId}">
                                 닫기
                             </button>
-                            <button data-action="ban" data-product-id="${product.id}" data-product-title="${product.title}" 
+                            <button data-action="ban" data-product-id="${safeProductId}" data-product-title="${safeTitle}" 
                                     class="alert-action-btn text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">
                                 차단
                             </button>
@@ -766,6 +835,21 @@ class FallcentAlertApp {
             this.renderProducts();
         }
         
+        // 모든 알림 카테고리에서 해당 productId를 가진 알림을 찾아서 닫기
+        let alertFound = false;
+        Object.keys(this.alerts).forEach(type => {
+            const alert = this.alerts[type].find(a => a.productId === productId);
+            if (alert) {
+                alertFound = true;
+                console.log(`🔍 보기 버튼으로 알림 닫기: ${type} 카테고리의 ${alert.id}`);
+                this.closeAlert(alert.id, productId);
+            }
+        });
+        
+        if (!alertFound) {
+            console.log(`⚠️ productId ${productId}에 해당하는 활성 알림을 찾을 수 없음`);
+        }
+        
         // 알림 목록에서 해당 상품 제거 (즉시 반영)
         this.filterAlertsForUser();
     }
@@ -784,16 +868,26 @@ class FallcentAlertApp {
 
     // 🔧 개선된 알림 닫기 처리
     closeAlert(alertId, productId) {
-        console.log(`🔧 알림 닫기 처리: Alert ID: ${alertId}, Product ID: ${productId}, Session: ${this.sessionId}`);
+        console.log(`🔧 알림 닫기 처리 시작: Alert ID: ${alertId}, Product ID: ${productId}, Session: ${this.sessionId}`);
+        
+        if (!alertId || !productId) {
+            console.error('❌ 알림 닫기 실패: alertId 또는 productId가 없습니다', { alertId, productId });
+            return;
+        }
         
         // 유저별 읽은 상품으로 표시 (localStorage + 쿠키)
         this.markProductAsSeen(productId);
+        console.log(`✅ 상품을 읽음으로 표시: ${productId}`);
         
         // 클라이언트 측에서 즉시 UI 업데이트
         this.closedAlerts.add(alertId);
+        console.log(`✅ 닫힌 알림 목록에 추가: ${alertId}`);
+        
+        // UI에서 알림 제거
         this.removeAlertFromUI(alertId);
         
         // 서버에 세션별 알림 닫기 요청
+        console.log(`📡 서버에 알림 닫기 요청 전송...`);
         this.socket.emit('close-alert', { 
             alertId, 
             productId, 
@@ -802,17 +896,45 @@ class FallcentAlertApp {
         
         // 알림 목록에서 해당 상품 제거 (즉시 반영)
         this.filterAlertsForUser();
+        console.log(`✅ 알림 닫기 처리 완료`);
     }
 
     // UI에서 알림 제거
     removeAlertFromUI(alertId) {
-        // 모든 알림 섹션에서 해당 알림 찾아서 제거
+        console.log(`🔍 UI에서 알림 제거 시작: ${alertId}`);
+        
+        // 먼저 해당 alertId로 productId 찾기
+        let targetProductId = null;
         Object.keys(this.alerts).forEach(type => {
-            this.alerts[type] = this.alerts[type].filter(alert => alert.id !== alertId);
-            this.updateAlertSection(type, this.alerts[type]);
+            const alert = this.alerts[type].find(a => a.id === alertId);
+            if (alert) {
+                targetProductId = alert.productId;
+                console.log(`📦 대상 상품 ID 발견: ${targetProductId}`);
+            }
         });
         
-        console.log(`✅ UI에서 알림 제거됨: ${alertId}`);
+        if (targetProductId) {
+            // 모든 카테고리에서 해당 productId를 가진 알림 제거
+            let removedCount = 0;
+            Object.keys(this.alerts).forEach(type => {
+                const originalLength = this.alerts[type].length;
+                this.alerts[type] = this.alerts[type].filter(alert => alert.productId !== targetProductId);
+                const removedFromType = originalLength - this.alerts[type].length;
+                if (removedFromType > 0) {
+                    console.log(`🗑️ ${type} 카테고리에서 ${removedFromType}개 알림 제거`);
+                    removedCount += removedFromType;
+                }
+                this.updateAlertSection(type, this.alerts[type]);
+            });
+            console.log(`✅ 총 ${removedCount}개 알림이 UI에서 제거됨 (상품 ID: ${targetProductId})`);
+        } else {
+            // fallback: alertId로만 제거
+            Object.keys(this.alerts).forEach(type => {
+                this.alerts[type] = this.alerts[type].filter(alert => alert.id !== alertId);
+                this.updateAlertSection(type, this.alerts[type]);
+            });
+            console.log(`✅ UI에서 알림 제거됨: ${alertId} (productId를 찾을 수 없어 alertId로만 제거)`);
+        }
     }
 
     openSettingsModal() {
@@ -936,16 +1058,25 @@ class FallcentAlertApp {
             this.saveUserSeenProducts();
             console.log('🧹 사용자별 읽은 상품 초기화 완료');
             
-            // 2. UI에 즉시 반영
+            // 2. 닫힌 알림 목록 초기화
+            this.closedAlerts.clear();
+            console.log('🧹 닫힌 알림 목록 초기화 완료');
+            
+            // 3. UI에 즉시 반영
             document.getElementById('viewedCount').textContent = '0';
             
-            // 3. 서버에 빈 userSeenProducts 배열 전송
-            this.socket.emit('init-session', { 
-                sessionId: this.sessionId,
-                userSeenProducts: []
-            });
+            // 4. 서버에 세션 데이터 초기화 요청
+            this.socket.emit('reset-session-data');
             
-            // 4. 글로벌 읽은 상품도 초기화 (기존 API 호출)
+            // 5. 서버에 빈 userSeenProducts 배열 전송 (약간의 지연 후)
+            setTimeout(() => {
+                this.socket.emit('init-session', { 
+                    sessionId: this.sessionId,
+                    userSeenProducts: []
+                });
+            }, 100); // 100ms 지연으로 서버가 세션 데이터를 초기화할 시간을 줌
+            
+            // 6. 글로벌 읽은 상품도 초기화 (기존 API 호출)
             fetch('/api/viewed-products', { method: 'DELETE' })
                 .then(response => response.json())
                 .then(data => {

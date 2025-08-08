@@ -491,33 +491,44 @@ class StorageService {
     removeActiveAlert(alertId) {
         console.log(`🔍 StorageService: 알림 ID "${alertId}" 제거 시도`);
         let found = false;
-        let foundType = null;
+        let foundProductId = null;
+        let removedCount = 0;
         
+        // 먼저 해당 alertId를 가진 알림을 찾아서 productId를 가져옴
         Object.keys(this.cache.activeAlerts).forEach(type => {
-            console.log(`🔍 ${type} 카테고리에서 검색 중... 현재 알림 수: ${this.cache.activeAlerts[type].length}`);
-            
-            // 현재 카테고리의 모든 알림 ID 출력
-            const currentIds = this.cache.activeAlerts[type].map(alert => alert.id);
-            console.log(`🔍 ${type} 카테고리 알림 ID들:`, currentIds);
-            
-            const index = this.cache.activeAlerts[type].findIndex(alert => alert.id === alertId);
-            if (index !== -1) {
-                console.log(`✅ ${type} 카테고리에서 알림 발견! 인덱스: ${index}`);
-                this.cache.activeAlerts[type].splice(index, 1);
-                found = true;
-                foundType = type;
-                console.log(`✅ 알림 제거 완료. ${type} 카테고리 남은 알림 수: ${this.cache.activeAlerts[type].length}`);
-            } else {
-                console.log(`❌ ${type} 카테고리에서 알림을 찾을 수 없음`);
+            const alert = this.cache.activeAlerts[type].find(alert => alert.id === alertId);
+            if (alert) {
+                foundProductId = alert.productId;
+                console.log(`✅ ${type} 카테고리에서 알림 발견! productId: ${foundProductId}`);
             }
         });
         
+        // productId를 찾았으면 모든 카테고리에서 해당 productId를 가진 알림을 모두 제거
+        if (foundProductId) {
+            console.log(`🔍 모든 카테고리에서 productId "${foundProductId}"를 가진 알림 제거 중...`);
+            
+            Object.keys(this.cache.activeAlerts).forEach(type => {
+                const originalLength = this.cache.activeAlerts[type].length;
+                this.cache.activeAlerts[type] = this.cache.activeAlerts[type].filter(alert => alert.productId !== foundProductId);
+                const removedFromType = originalLength - this.cache.activeAlerts[type].length;
+                
+                if (removedFromType > 0) {
+                    console.log(`✅ ${type} 카테고리에서 ${removedFromType}개 알림 제거됨`);
+                    removedCount += removedFromType;
+                    found = true;
+                }
+            });
+        }
+        
         if (found) {
-            console.log(`💾 알림 제거 후 파일 저장 중... (${foundType} 카테고리)`);
             this.saveObjectToFile(this.cache.activeAlerts, this.paths.activeAlerts);
-            console.log(`💾 파일 저장 완료`);
+            console.log(`💾 활성 알림 파일 저장 완료 - 총 ${removedCount}개 알림 제거됨`);
+            
+            // 제거 후 전체 상태 확인
+            const totalAlerts = Object.values(this.cache.activeAlerts).reduce((sum, alerts) => sum + alerts.length, 0);
+            console.log(`📊 전체 활성 알림 수: ${totalAlerts}`);
         } else {
-            console.log(`❌ 전체 검색 결과: 알림 ID "${alertId}"를 찾을 수 없음`);
+            console.log(`❌ 알림 ID "${alertId}"를 어떤 카테고리에서도 찾을 수 없음`);
         }
         
         return found;
