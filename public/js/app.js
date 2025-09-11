@@ -10,6 +10,9 @@ class FallcentAlertApp {
             keyword: []
         };
         
+        // 초특가 알림 비상 모드 관리
+        this.emergencyMode = false;
+        
         // 세션 관리 개선
         this.sessionId = this.generateSessionId();
         this.closedAlerts = new Set(); // 클라이언트 측에서도 닫힌 알림 추적
@@ -129,7 +132,8 @@ class FallcentAlertApp {
         // 🔧 사용자 설정에서 해당 알림 타입의 소리가 활성화되어 있는지 확인
         const isNotificationEnabled = this.currentSettings.notifications?.browserNotifications !== false;
         const soundSetting = this.currentSettings.notifications?.sounds?.[alertType];
-        const isSoundEnabled = soundSetting && typeof soundSetting === 'string';
+        // 소리 설정이 없거나 문자열이면 활성화된 것으로 간주 (기본값 허용)
+        const isSoundEnabled = soundSetting === undefined || typeof soundSetting === 'string';
         
         if (!isNotificationEnabled) {
             console.log(`🔇 알림이 비활성화됨 - ${alertType} 소리 재생 안함`);
@@ -342,6 +346,9 @@ class FallcentAlertApp {
             
             this.renderProducts();
             this.updateSettingsUI();
+            
+            // 초기 로드 시 비상 모드 체크
+            this.checkEmergencyMode();
         });
 
         // 상품 업데이트
@@ -622,6 +629,9 @@ class FallcentAlertApp {
             this.updateAlertSection(type, filteredAlerts);
         });
         
+        // 초특가 알림 비상 모드 체크
+        this.checkEmergencyMode();
+        
         console.log(`✅ 사용자별 알림 필터링 완료: 총 ${totalAlerts}개 중 ${totalFiltered}개 표시`);
     }
 
@@ -852,6 +862,9 @@ class FallcentAlertApp {
         
         // 알림 목록에서 해당 상품 제거 (즉시 반영)
         this.filterAlertsForUser();
+        
+        // 초특가 알림 비상 모드 재체크
+        this.checkEmergencyMode();
     }
 
     banProduct(productId, title) {
@@ -896,6 +909,10 @@ class FallcentAlertApp {
         
         // 알림 목록에서 해당 상품 제거 (즉시 반영)
         this.filterAlertsForUser();
+        
+        // 초특가 알림 비상 모드 재체크
+        this.checkEmergencyMode();
+        
         console.log(`✅ 알림 닫기 처리 완료`);
     }
 
@@ -1372,6 +1389,36 @@ class FallcentAlertApp {
         document.addEventListener('keydown', enableAudio, { once: true });
         
         console.log('🔊 사용자 상호작용을 기다리는 중... (클릭 또는 키보드 입력)');
+    }
+    
+    // 초특가 비상 모드 체크
+    checkEmergencyMode() {
+        // 읽지 않은 초특가 알림이 있는지 확인
+        const unreadSuperAlerts = this.alerts.super.filter(alert => 
+            !this.isProductSeen(alert.productId) && !this.closedAlerts.has(alert.id)
+        );
+        
+        if (unreadSuperAlerts.length > 0 && !this.emergencyMode) {
+            // 비상 모드 활성화
+            this.activateEmergencyMode();
+        } else if (unreadSuperAlerts.length === 0 && this.emergencyMode) {
+            // 비상 모드 비활성화
+            this.deactivateEmergencyMode();
+        }
+    }
+    
+    // 비상 모드 활성화
+    activateEmergencyMode() {
+        this.emergencyMode = true;
+        document.body.classList.add('emergency-flash-strong');
+        console.log('🚨 초특가 비상 모드 활성화!');
+    }
+    
+    // 비상 모드 비활성화
+    deactivateEmergencyMode() {
+        this.emergencyMode = false;
+        document.body.classList.remove('emergency-flash-strong');
+        console.log('✅ 초특가 비상 모드 해제');
     }
 }
 

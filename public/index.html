@@ -60,6 +60,39 @@
         .keyword-deal {
             background: linear-gradient(135deg, #ff9ff3 0%, #f368e0 100%);
         }
+        
+        /* 초특가 알림 시 배경 깜빡임 효과 */
+        .emergency-flash {
+            animation: emergencyFlash 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes emergencyFlash {
+            0%, 100% {
+                background-color: #ffffff;
+            }
+            50% {
+                background-color: #fee2e2; /* 연한 빨간색 */
+            }
+        }
+        
+        .emergency-flash-strong {
+            animation: emergencyFlashStrong 1.2s ease-in-out infinite;
+        }
+        
+        @keyframes emergencyFlashStrong {
+            0%, 100% {
+                background-color: #ffffff;
+            }
+            25% {
+                background-color: #fecaca; /* 중간 빨간색 */
+            }
+            50% {
+                background-color: #fca5a5; /* 진한 빨간색 */
+            }
+            75% {
+                background-color: #fecaca; /* 중간 빨간색 */
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
