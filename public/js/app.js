@@ -349,6 +349,23 @@ class FallcentAlertApp {
             
             // 초기 로드 시 비상 모드 체크
             this.checkEmergencyMode();
+            
+            // 초기 로드 시 초특가 알림이 있으면 즉시 사운드 재생 시도
+            if (this.emergencyMode) {
+                // 먼저 즉시 재생 시도
+                setTimeout(() => {
+                    this.playEmergencySoundImmediately();
+                }, 100); // 아주 짧은 딜레이만 두고 즉시 재생
+                
+                // 만약 실패하면 사용자 상호작용 대기
+                const playOnInteraction = () => {
+                    if (this.audioContext && this.audioContext.state === 'suspended') {
+                        this.playEmergencySound();
+                    }
+                };
+                document.addEventListener('click', playOnInteraction, { once: true });
+                document.addEventListener('keydown', playOnInteraction, { once: true });
+            }
         });
 
         // 상품 업데이트
@@ -1399,8 +1416,10 @@ class FallcentAlertApp {
         );
         
         if (unreadSuperAlerts.length > 0 && !this.emergencyMode) {
-            // 비상 모드 활성화
+            // 비상 모드 활성화와 동시에 사운드 재생
             this.activateEmergencyMode();
+            // 즉시 사운드 재생 (딜레이 없음)
+            this.playEmergencySoundImmediately();
         } else if (unreadSuperAlerts.length === 0 && this.emergencyMode) {
             // 비상 모드 비활성화
             this.deactivateEmergencyMode();
@@ -1426,6 +1445,58 @@ class FallcentAlertApp {
         }, 500);
         
         console.log('🚨 초특가 비상 모드 활성화!');
+    }
+    
+    // 비상 모드 사운드 재생
+    playEmergencySound() {
+        console.log('🔊 초특가 비상 알림음 재생');
+        
+        // Audio Context 활성화 확인
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            this.audioContext.resume().then(() => {
+                console.log('🔊 Audio Context 활성화 후 알림음 재생');
+                // 초특가 알림음을 5번 반복 재생
+                this.playAlertSoundWithRepeat('super', { 
+                    repeat: { enabled: true, count: 5, interval: 500 } 
+                });
+            }).catch(error => {
+                console.warn('🔊 Audio Context 활성화 실패:', error);
+            });
+        } else {
+            // 초특가 알림음을 5번 반복 재생
+            this.playAlertSoundWithRepeat('super', { 
+                repeat: { enabled: true, count: 5, interval: 500 } 
+            });
+        }
+    }
+    
+    // 즉시 비상 모드 사운드 재생 (딜레이 없음)
+    playEmergencySoundImmediately() {
+        console.log('🔊 초특가 비상 알림음 즉시 재생!');
+        
+        // Audio Context 즉시 활성화 시도
+        if (!this.audioContext) {
+            this.initAudioContext();
+        }
+        
+        // 즉시 재생 시도
+        if (this.audioContext) {
+            // suspended 상태라도 일단 재생 시도
+            if (this.audioContext.state === 'suspended') {
+                // resume을 시도하되, 기다리지 않고 바로 재생도 시도
+                this.audioContext.resume();
+            }
+            
+            // 바로 재생 (브라우저가 허용하는 경우)
+            try {
+                this.playBeepPattern([1000, 1200, 1000, 1200, 1000], 200);
+                console.log('🔊 비상 알림음 즉시 재생 성공');
+            } catch (e) {
+                console.log('🔊 즉시 재생 실패, 사용자 상호작용 대기');
+                // 실패시 사용자 상호작용 대기
+                this.playEmergencySound();
+            }
+        }
     }
     
     // 비상 모드 비활성화
