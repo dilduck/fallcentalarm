@@ -76,7 +76,8 @@
         }
         
         .emergency-flash-strong {
-            animation: emergencyFlashStrong 1.2s ease-in-out infinite;
+            animation: emergencyFlashStrong 0.8s ease-in-out infinite;
+            position: relative;
         }
         
         @keyframes emergencyFlashStrong {
@@ -84,13 +85,71 @@
                 background-color: #ffffff;
             }
             25% {
-                background-color: #fecaca; /* 중간 빨간색 */
-            }
-            50% {
                 background-color: #fca5a5; /* 진한 빨간색 */
             }
+            50% {
+                background-color: #ef4444; /* 매우 진한 빨간색 */
+            }
             75% {
-                background-color: #fecaca; /* 중간 빨간색 */
+                background-color: #fca5a5; /* 진한 빨간색 */
+            }
+        }
+        
+        /* 초특가 알림 섹션 강조 효과 */
+        .emergency-mode #superAlerts {
+            animation: pulseGlow 1s ease-in-out infinite;
+            border: 3px solid #ef4444;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+        }
+        
+        @keyframes pulseGlow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+            }
+            50% {
+                box-shadow: 0 0 40px rgba(239, 68, 68, 0.8);
+            }
+        }
+        
+        /* 비상 모드 시 헤더 강조 */
+        .emergency-mode header {
+            animation: headerAlert 0.5s ease-in-out infinite alternate;
+        }
+        
+        @keyframes headerAlert {
+            from {
+                background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            }
+            to {
+                background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            }
+        }
+        
+        /* 비상 모드 오버레이 효과 */
+        .emergency-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 9999;
+            background: linear-gradient(
+                to bottom,
+                rgba(239, 68, 68, 0.1) 0%,
+                transparent 20%,
+                transparent 80%,
+                rgba(239, 68, 68, 0.1) 100%
+            );
+            animation: overlayPulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes overlayPulse {
+            0%, 100% {
+                opacity: 0.3;
+            }
+            50% {
+                opacity: 0.6;
             }
         }
     </style>

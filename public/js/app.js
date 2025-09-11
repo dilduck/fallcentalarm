@@ -1410,14 +1410,41 @@ class FallcentAlertApp {
     // 비상 모드 활성화
     activateEmergencyMode() {
         this.emergencyMode = true;
-        document.body.classList.add('emergency-flash-strong');
+        document.body.classList.add('emergency-flash-strong', 'emergency-mode');
+        
+        // 오버레이 추가
+        if (!document.querySelector('.emergency-overlay')) {
+            const overlay = document.createElement('div');
+            overlay.className = 'emergency-overlay';
+            document.body.appendChild(overlay);
+        }
+        
+        // 타이틀 깜빡임
+        this.originalTitle = document.title;
+        this.titleInterval = setInterval(() => {
+            document.title = document.title === '🚨 초특가 알림! 🚨' ? this.originalTitle : '🚨 초특가 알림! 🚨';
+        }, 500);
+        
         console.log('🚨 초특가 비상 모드 활성화!');
     }
     
     // 비상 모드 비활성화
     deactivateEmergencyMode() {
         this.emergencyMode = false;
-        document.body.classList.remove('emergency-flash-strong');
+        document.body.classList.remove('emergency-flash-strong', 'emergency-mode');
+        
+        // 오버레이 제거
+        const overlay = document.querySelector('.emergency-overlay');
+        if (overlay) {
+            overlay.remove();
+        }
+        
+        // 타이틀 복원
+        if (this.titleInterval) {
+            clearInterval(this.titleInterval);
+            document.title = this.originalTitle || '폴센트 핫딜 감시 - 웹 버전';
+        }
+        
         console.log('✅ 초특가 비상 모드 해제');
     }
 }
