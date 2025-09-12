@@ -12,6 +12,7 @@ class FallcentAlertApp {
         
         // 초특가 알림 비상 모드 관리
         this.emergencyMode = false;
+        this.emergencySoundInterval = null; // 반복 사운드 인터벌 ID
         
         // 세션 관리 개선
         this.sessionId = this.generateSessionId();
@@ -1444,6 +1445,9 @@ class FallcentAlertApp {
             document.title = document.title === '🚨 초특가 알림! 🚨' ? this.originalTitle : '🚨 초특가 알림! 🚨';
         }, 500);
         
+        // 사운드 반복 재생 시작 (비상 모드 동안 계속)
+        this.startEmergencySoundLoop();
+        
         console.log('🚨 초특가 비상 모드 활성화!');
     }
     
@@ -1516,7 +1520,65 @@ class FallcentAlertApp {
             document.title = this.originalTitle || '폴센트 핫딜 감시 - 웹 버전';
         }
         
+        // 사운드 반복 중지
+        this.stopEmergencySoundLoop();
+        
         console.log('✅ 초특가 비상 모드 해제');
+    }
+    
+    // 비상 모드 사운드 반복 시작
+    startEmergencySoundLoop() {
+        // 기존 반복이 있으면 먼저 중지
+        this.stopEmergencySoundLoop();
+        
+        console.log('🔊 비상 모드 사운드 반복 시작');
+        
+        // 즉시 한 번 재생
+        this.playSuperAlertSound();
+        
+        // 5초마다 반복 재생
+        this.emergencySoundInterval = setInterval(() => {
+            if (this.emergencyMode) {
+                console.log('🔊 비상 모드 사운드 반복 재생');
+                this.playSuperAlertSound();
+            }
+        }, 5000); // 5초마다 반복
+    }
+    
+    // 비상 모드 사운드 반복 중지
+    stopEmergencySoundLoop() {
+        if (this.emergencySoundInterval) {
+            clearInterval(this.emergencySoundInterval);
+            this.emergencySoundInterval = null;
+            console.log('🔇 비상 모드 사운드 반복 중지');
+        }
+    }
+    
+    // 초특가 알림 사운드 재생 (한 번)
+    playSuperAlertSound() {
+        if (!this.audioContext) {
+            this.initAudioContext();
+        }
+        
+        if (this.audioContext) {
+            try {
+                // 긴급한 느낌의 높은 주파수 반복음
+                const pattern = [1000, 1200, 1000, 1200, 1000];
+                const duration = 200;
+                
+                let delay = 0;
+                pattern.forEach((freq) => {
+                    setTimeout(() => {
+                        if (this.audioContext && this.emergencyMode) {
+                            this.playBeep(freq, duration);
+                        }
+                    }, delay);
+                    delay += duration + 100;
+                });
+            } catch (e) {
+                console.warn('사운드 재생 오류:', e);
+            }
+        }
     }
 }
 
