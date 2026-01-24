@@ -1430,20 +1430,20 @@ class FallcentAlertApp {
     // 비상 모드 활성화
     activateEmergencyMode() {
         this.emergencyMode = true;
-        document.body.classList.add('emergency-flash-strong', 'emergency-mode');
-        
+        document.body.classList.add('emergency-mode');
+
         // 오버레이 추가
         if (!document.querySelector('.emergency-overlay')) {
             const overlay = document.createElement('div');
             overlay.className = 'emergency-overlay';
             document.body.appendChild(overlay);
         }
-        
-        // 타이틀 깜빡임
+
+        // 타이틀 깜빡임 (1초 주기로 변경 - 리소스 절약)
         this.originalTitle = document.title;
         this.titleInterval = setInterval(() => {
             document.title = document.title === '🚨 초특가 알림! 🚨' ? this.originalTitle : '🚨 초특가 알림! 🚨';
-        }, 500);
+        }, 1000);
         
         // 사운드 반복 재생 시작 (비상 모드 동안 계속)
         this.startEmergencySoundLoop();
@@ -1506,7 +1506,7 @@ class FallcentAlertApp {
     // 비상 모드 비활성화
     deactivateEmergencyMode() {
         this.emergencyMode = false;
-        document.body.classList.remove('emergency-flash-strong', 'emergency-mode');
+        document.body.classList.remove('emergency-mode');
         
         // 오버레이 제거
         const overlay = document.querySelector('.emergency-overlay');
