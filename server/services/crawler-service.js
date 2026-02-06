@@ -69,28 +69,32 @@ class CrawlerService {
             // VB.NET처럼 정확히 ID로 찾기 - 여러 방법 시도
             let electronicsDiv = null;
             
-            // 1차: VB.NET처럼 정확한 ID로 찾기
-            $('*').each((i, element) => {
+            // 상품을 포함하는 가전/디지털 섹션 찾기 (여러 방법 시도)
+            const candidates = [];
+
+            // 후보 1: 구 형식 id="가전/디지털"
+            $('[id]').each((i, element) => {
                 const $el = $(element);
-                const id = $el.attr('id');
-                if (id === '가전/디지털') {
-                    electronicsDiv = $el;
-                    console.log('✅ 가전/디지털 섹션을 ID로 찾았습니다:', id);
-                    return false; // break
+                const id = $el.attr('id') || '';
+                if (id === '가전/디지털' || id === 'category_가전/디지털') {
+                    candidates.push({ el: $el, id: id });
+                } else if (id.includes('가전') || id.includes('디지털')) {
+                    candidates.push({ el: $el, id: id });
                 }
             });
-            
-            // 2차: ID에 가전/디지털이 포함된 요소 찾기
-            if (!electronicsDiv || electronicsDiv.length === 0) {
-                $('*').each((i, element) => {
-                    const $el = $(element);
-                    const id = $el.attr('id') || '';
-                    if (id.includes('가전') && id.includes('디지털')) {
-                        electronicsDiv = $el;
-                        console.log('✅ 가전/디지털 섹션을 부분 ID로 찾았습니다:', id);
-                        return false; // break
-                    }
-                });
+
+            // 상품을 실제로 포함하는 후보 선택
+            for (const candidate of candidates) {
+                const productCount = candidate.el.find('.small_product_div').length;
+                if (productCount > 0) {
+                    electronicsDiv = candidate.el;
+                    console.log(`✅ 가전/디지털 섹션 발견: id="${candidate.id}" (상품 ${productCount}개)`);
+                    break;
+                }
+            }
+
+            if (!electronicsDiv && candidates.length > 0) {
+                console.log(`⚠️ 가전/디지털 관련 요소 ${candidates.length}개 발견했으나 상품 포함 요소 없음`);
             }
             
             // 3차: 텍스트로 찾기
@@ -126,20 +130,27 @@ class CrawlerService {
                     try {
                         const $element = $(element);
                         const linkElement = $element.find('a').first();
-                        
+
                         if (linkElement.length > 0) {
                             let href = linkElement.attr('href') || '';
                             href = href.replace(/&amp;/g, '&');
-                            
-                            const urlMatch = href.match(/product_id=(\d+)&item_id=(\d+)/);
-                            if (urlMatch) {
-                                const productId = urlMatch[1];
-                                const itemId = urlMatch[2];
-                                const fullId = `${productId}_${itemId}`;
+
+                            // 새 형식: /product/{hash}/ 또는 구 형식: product_id=X&item_id=Y
+                            let fullId = null;
+                            const newUrlMatch = href.match(/\/product\/([A-Za-z0-9_-]+)\/?/);
+                            const oldUrlMatch = href.match(/product_id=(\d+)&item_id=(\d+)/);
+
+                            if (newUrlMatch) {
+                                fullId = newUrlMatch[1];
+                            } else if (oldUrlMatch) {
+                                fullId = `${oldUrlMatch[1]}_${oldUrlMatch[2]}`;
+                            }
+
+                            if (fullId) {
                                 electronicProductIds.add(fullId);
-                                
+
                                 // 상품명도 출력해서 정말 전자제품인지 확인
-                                const title = $element.find('.another_item_name').text() || 
+                                const title = $element.find('.another_item_name').text() ||
                                              $element.find('img').attr('alt') || '';
                             }
                         }
@@ -218,17 +229,23 @@ class CrawlerService {
             // 상품 링크 찾기
             const linkElement = $element.find('a').first();
             if (linkElement.length === 0) return null;
-            
+
             let href = linkElement.attr('href') || '';
             href = href.replace(/&amp;/g, '&');
-            
-            // 상품 ID 추출
-            const urlMatch = href.match(/product_id=(\d+)&item_id=(\d+)/);
-            if (!urlMatch) return null;
-            
-            const productId = urlMatch[1];
-            const itemId = urlMatch[2];
-            const fullId = `${productId}_${itemId}`;
+
+            // 상품 ID 추출 - 새 형식: /product/{hash}/ 또는 구 형식: product_id=X&item_id=Y
+            let fullId = null;
+
+            const newUrlMatch = href.match(/\/product\/([A-Za-z0-9_-]+)\/?/);
+            const oldUrlMatch = href.match(/product_id=(\d+)&item_id=(\d+)/);
+
+            if (newUrlMatch) {
+                fullId = newUrlMatch[1];
+            } else if (oldUrlMatch) {
+                fullId = `${oldUrlMatch[1]}_${oldUrlMatch[2]}`;
+            }
+
+            if (!fullId) return null;
             
             // 가격 추출
             const price = this.extractPrice($element);
@@ -245,7 +262,14 @@ class CrawlerService {
             const imageUrl = this.extractImageUrl($element);
             
             // 상품 URL 생성
-            const productUrl = href.startsWith('http') ? href : `https://fallcent.com${href}`;
+            let productUrl;
+            if (href.startsWith('http')) {
+                productUrl = href;
+            } else if (href.startsWith('/')) {
+                productUrl = `https://fallcent.com${href}`;
+            } else {
+                productUrl = `https://fallcent.com/${href}`;
+            }
             
             // 로켓배송/최저가 뱃지 확인 - cheerio 인스턴스 전달
             const badges = this.extractBadges($element, $);
@@ -361,8 +385,9 @@ class CrawlerService {
             const titleElement = $element.find('.another_item_name');
             if (titleElement.length > 0) {
                 let title = titleElement.text().trim();
-                // [쿠팡] 텍스트 제거
-                title = title.replace(/\[쿠팡\]/g, '').trim();
+                // [쿠팡] 텍스트 제거 및 공백 정규화
+                title = title.replace(/\[쿠팡\]/g, '');
+                title = title.replace(/\s+/g, ' ').trim();
                 return title;
             }
             
