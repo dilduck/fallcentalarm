@@ -731,8 +731,9 @@ class FallcentAlertApp {
                             <span class="text-sm font-semibold">${priceStr}원</span>
                         </div>
                         <div class="mt-2 flex space-x-1">
-                            ${product.isRocket ? '<span class="px-1 py-0.5 text-xs bg-blue-100 text-blue-600 rounded">로켓</span>' : ''}
-                            ${product.isLowest ? '<span class="px-1 py-0.5 text-xs bg-green-100 text-green-600 rounded">최저가</span>' : ''}
+                            ${product.isRocket ? `<span class="px-1 py-0.5 text-xs bg-blue-100 text-blue-600 rounded">${product.deliveryType || '로켓'}</span>` : ''}
+                            ${product.isLowest ? '<span class="px-1 py-0.5 text-xs bg-green-100 text-green-600 rounded">역대최저가</span>' : ''}
+                            ${product.isTiming ? '<span class="px-1 py-0.5 text-xs bg-purple-100 text-purple-600 rounded">구매타이밍</span>' : ''}
                             ${product.isElectronic ? '<span class="px-1 py-0.5 text-xs bg-purple-100 text-purple-600 rounded">가전</span>' : ''}
                         </div>
                         <div class="mt-2 flex space-x-2">
@@ -816,8 +817,9 @@ class FallcentAlertApp {
                         <span class="px-2 py-1 text-xs bg-red-600 text-white rounded font-bold">${product.discountRate}% 할인</span>
                     </div>
                     <div class="absolute top-2 right-2 flex flex-col space-y-1">
-                        ${product.isRocket ? '<span class="px-2 py-1 text-xs bg-blue-500 text-white rounded">로켓배송</span>' : ''}
-                        ${product.isLowest ? '<span class="px-2 py-1 text-xs bg-green-500 text-white rounded">최저가</span>' : ''}
+                        ${product.isRocket ? `<span class="px-2 py-1 text-xs bg-blue-500 text-white rounded">${product.deliveryType || '로켓배송'}</span>` : ''}
+                        ${product.isLowest ? '<span class="px-2 py-1 text-xs bg-green-500 text-white rounded">역대최저가</span>' : ''}
+                        ${product.isTiming ? '<span class="px-2 py-1 text-xs bg-purple-500 text-white rounded">구매타이밍</span>' : ''}
                     </div>
                 </div>
                 <div class="p-4">

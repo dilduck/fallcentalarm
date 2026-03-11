@@ -5,14 +5,16 @@ class CrawlerService {
     constructor(storageService) {
         this.storageService = storageService;
         this.SUPER_DISCOUNT_THRESHOLD = 49;
+        this.CRAWL_URL = 'https://fallcent.com/product/recommend/?from=gnb';
     }
 
     async crawlFallcent() {
         try {
             console.log('폴센트 크롤링 시작...');
-            
+            console.log(`📍 크롤링 URL: ${this.CRAWL_URL}`);
+
             // HTTP 요청으로 HTML 가져오기
-            const response = await axios.get('https://fallcent.com/', {
+            const response = await axios.get(this.CRAWL_URL, {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
@@ -21,184 +23,143 @@ class CrawlerService {
                     'Cache-Control': 'no-cache',
                     'Pragma': 'no-cache'
                 },
-                timeout: 30000, // 30초 타임아웃
+                timeout: 30000,
                 maxRedirects: 5
             });
 
             console.log(`응답 상태: ${response.status}`);
-            
+
             // Cheerio로 파싱
             const $ = cheerio.load(response.data);
-            
-            // 가전/디지털 카테고리 상품 ID 먼저 추출
+
+            // 가전/디지털 카테고리 상품 ID 추출 (카테고리별 급락한 상품 섹션)
             const electronicProductIds = this.extractElectronicProductIds($);
             console.log(`가전/디지털 카테고리 상품 ID 수: ${electronicProductIds.size}`);
-            
+
             // 상품 정보 추출
             const products = this.extractProducts($, electronicProductIds);
-            
+
             console.log(`총 ${products.length}개 상품 추출 완료`);
             return products;
-            
+
         } catch (error) {
             console.error('크롤링 중 오류:', error.message);
-            
-            // 타임아웃 오류인 경우
+
             if (error.code === 'ECONNABORTED') {
                 console.error('⏱️ 요청 타임아웃. 네트워크 상태를 확인하세요.');
-            }
-            // 네트워크 오류인 경우
-            else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+            } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
                 console.error('🌐 네트워크 연결 오류. 인터넷 연결을 확인하세요.');
-            }
-            // HTTP 오류인 경우
-            else if (error.response) {
+            } else if (error.response) {
                 console.error(`🚫 HTTP 오류: ${error.response.status} ${error.response.statusText}`);
             }
-            
+
             throw error;
         }
     }
 
     extractElectronicProductIds($) {
         const electronicProductIds = new Set();
-        
+
         try {
             console.log('🔍 가전/디지털 카테고리 추출 시작...');
-            
-            // VB.NET처럼 정확히 ID로 찾기 - 여러 방법 시도
-            let electronicsDiv = null;
-            
-            // 상품을 포함하는 가전/디지털 섹션 찾기 (여러 방법 시도)
-            const candidates = [];
 
-            // 후보 1: 구 형식 id="가전/디지털"
-            $('[id]').each((i, element) => {
-                const $el = $(element);
-                const id = $el.attr('id') || '';
-                if (id === '가전/디지털' || id === 'category_가전/디지털') {
-                    candidates.push({ el: $el, id: id });
-                } else if (id.includes('가전') || id.includes('디지털')) {
-                    candidates.push({ el: $el, id: id });
-                }
+            // 새 구조: data-category-group="가전/디지털" 또는
+            // "카테고리별 급락한 상품" 섹션 내 가전/디지털 탭의 상품들
+
+            // 방법 1: data-category-group 속성으로 직접 찾기
+            const electronicGroups = $('[data-category-group]').filter((i, el) => {
+                const category = $(el).attr('data-category-group') || '';
+                return category === '가전/디지털';
             });
 
-            // 상품을 실제로 포함하는 후보 선택
-            for (const candidate of candidates) {
-                const productCount = candidate.el.find('.small_product_div').length;
-                if (productCount > 0) {
-                    electronicsDiv = candidate.el;
-                    console.log(`✅ 가전/디지털 섹션 발견: id="${candidate.id}" (상품 ${productCount}개)`);
-                    break;
-                }
+            if (electronicGroups.length > 0) {
+                console.log(`✅ 가전/디지털 카테고리 그룹 발견: ${electronicGroups.length}개`);
+
+                electronicGroups.each((i, group) => {
+                    const links = $(group).find('a[href*="/product/"]');
+                    links.each((j, link) => {
+                        const href = $(link).attr('href') || '';
+                        const productId = this.extractProductIdFromHref(href);
+                        if (productId) {
+                            electronicProductIds.add(productId);
+                        }
+                    });
+                });
             }
 
-            if (!electronicsDiv && candidates.length > 0) {
-                console.log(`⚠️ 가전/디지털 관련 요소 ${candidates.length}개 발견했으나 상품 포함 요소 없음`);
-            }
-            
-            // 3차: 텍스트로 찾기
-            if (!electronicsDiv || electronicsDiv.length === 0) {
-                $('*').each((i, element) => {
-                    const $el = $(element);
-                    const text = $el.text().trim();
-                    if (text === '가전/디지털' || text.includes('가전/디지털')) {
-                        // 부모 요소들 중에서 상품을 포함할 가능성이 높은 것 찾기
-                        let candidate = $el;
-                        for (let level = 0; level < 5; level++) {
-                            if (candidate.find('.small_product_div').length > 0) {
-                                electronicsDiv = candidate;
-                                console.log('✅ 가전/디지털 섹션을 텍스트로 찾았습니다:', text, '레벨:', level);
-                                return false;
-                            }
-                            candidate = candidate.parent();
-                            if (candidate.length === 0) break;
-                        }
+            // 방법 2: 전체 상품 중 제목 키워드로 전자제품 추정
+            // (카테고리 그룹이 없는 섹션의 상품도 포함하기 위해)
+            if (electronicProductIds.size === 0) {
+                console.log('⚠️ data-category-group으로 가전/디지털을 찾지 못함. 제목 키워드로 시도...');
+
+                $('a[href*="/product/"]').each((i, link) => {
+                    const $link = $(link);
+                    const href = $link.attr('href') || '';
+                    const productId = this.extractProductIdFromHref(href);
+                    if (!productId) return;
+
+                    // img alt 또는 p 텍스트에서 제목 추출
+                    const imgAlt = $link.find('img').first().attr('alt') || '';
+                    const pText = $link.find('p.line-clamp-2').text().trim() || '';
+                    const title = pText || imgAlt;
+
+                    if (this.isElectronicByKeyword(title)) {
+                        electronicProductIds.add(productId);
                     }
                 });
             }
-            
-            
-            if (electronicsDiv && electronicsDiv.length > 0) {
-                console.log('🔍 가전/디지털 카테고리 섹션에서 상품 ID 추출 중...');
-                
-                // VB.NET처럼 해당 섹션 내의 모든 상품 div 찾기
-                const productDivs = electronicsDiv.find('.small_product_div');
-                console.log(`📋 가전/디지털 섹션에서 ${productDivs.length}개 상품 발견`);
-                
-                productDivs.each((index, element) => {
-                    try {
-                        const $element = $(element);
-                        const linkElement = $element.find('a').first();
 
-                        if (linkElement.length > 0) {
-                            let href = linkElement.attr('href') || '';
-                            href = href.replace(/&amp;/g, '&');
-
-                            // 새 형식: /product/{hash}/ 또는 구 형식: product_id=X&item_id=Y
-                            let fullId = null;
-                            const newUrlMatch = href.match(/\/product\/([A-Za-z0-9_-]+)\/?/);
-                            const oldUrlMatch = href.match(/product_id=(\d+)&item_id=(\d+)/);
-
-                            if (newUrlMatch) {
-                                fullId = newUrlMatch[1];
-                            } else if (oldUrlMatch) {
-                                fullId = `${oldUrlMatch[1]}_${oldUrlMatch[2]}`;
-                            }
-
-                            if (fullId) {
-                                electronicProductIds.add(fullId);
-
-                                // 상품명도 출력해서 정말 전자제품인지 확인
-                                const title = $element.find('.another_item_name').text() ||
-                                             $element.find('img').attr('alt') || '';
-                            }
-                        }
-                    } catch (err) {
-                        console.warn('가전/디지털 상품 ID 추출 중 오류:', err.message);
-                    }
-                });
-            } else {
-                console.warn('❌ 가전/디지털 카테고리 섹션을 찾을 수 없습니다.');
-                console.log('🔍 페이지 구조 분석을 위해 ID가 있는 모든 요소를 출력합니다:');
-                
-                $('[id]').each((i, element) => {
-                    const $el = $(element);
-                    const id = $el.attr('id');
-                    const text = $el.text().trim().substring(0, 100);
-                    console.log(`ID: "${id}" - 텍스트: "${text}"`);
-                });
-            }
-            
         } catch (error) {
             console.error('가전/디지털 카테고리 추출 중 오류:', error);
         }
-        
+
         console.log(`🔧 총 ${electronicProductIds.size}개의 가전/디지털 상품 ID가 추출되었습니다.`);
         return electronicProductIds;
     }
 
+    /**
+     * 제목 키워드로 전자제품 여부 추정 (카테고리 정보 없을 때 폴백)
+     */
+    isElectronicByKeyword(title) {
+        if (!title) return false;
+        const keywords = [
+            '삼성전자', 'LG전자', '하이센스', '냉장고', '세탁기', '건조기',
+            '에어컨', 'TV', '모니터', '노트북', '태블릿', '갤럭시', '아이폰',
+            '아이패드', '맥북', '그램', '청소기', '로봇청소기', '전자레인지',
+            '식기세척기', '공기청정기', '선풍기', '히터', '제습기', '가습기',
+            'PC', '컴퓨터', '키보드', '마우스', '스피커', '이어폰', '헤드폰',
+            '블루투스', 'SSD', 'HDD', '메모리', 'RAM', 'GPU', 'CPU',
+            '프린터', '스캐너', '빔프로젝터', '프로젝터', '카메라', 'DSLR',
+            '닌텐도', '플레이스테이션', 'PS5', 'Xbox', '스위치'
+        ];
+        const lowerTitle = title.toLowerCase();
+        return keywords.some(kw => lowerTitle.includes(kw.toLowerCase()));
+    }
 
     extractProducts($, electronicProductIds) {
         const products = [];
         const processedIds = new Set();
-        
+
         console.log('\n📊 상품 추출 시작...');
-        
+
         try {
-            // 모든 상품 항목 찾기
-            const allProductDivs = $('.small_product_div');
-            console.log(`🔍 전체 상품 div 수: ${allProductDivs.length}개`);
-            
-            allProductDivs.each((index, element) => {
+            // 새 구조: 모든 상품 링크 <a href="/product/{hash}/..."> 찾기
+            const allProductLinks = $('a[href*="/product/"]').filter((i, el) => {
+                const href = $(el).attr('href') || '';
+                // /product/recommend/ 등 페이지 자체 링크 제외, 상품 해시 링크만
+                return /\/product\/[A-Za-z0-9_-]{10,}\//.test(href);
+            });
+
+            console.log(`🔍 전체 상품 링크 수: ${allProductLinks.length}개`);
+
+            allProductLinks.each((index, element) => {
                 try {
                     const $element = $(element);
-                    const product = this.parseProductElement($element, electronicProductIds);
-                    
+                    const product = this.parseProductElement($element, $, electronicProductIds);
+
                     if (product && !processedIds.has(product.id)) {
                         processedIds.add(product.id);
-                        
-                        // 차단된 상품 필터링
+
                         if (!this.storageService.isProductBanned(product.id)) {
                             products.push(product);
                         }
@@ -210,57 +171,39 @@ class CrawlerService {
         } catch (error) {
             console.error('상품 추출 중 오류:', error);
         }
-        
+
         console.log(`\n📊 상품 추출 완료 통계:`);
         console.log(`- 처리된 상품 수: ${processedIds.size}개`);
         console.log(`- 필터링 후 최종 상품 수: ${products.length}개`);
         console.log(`- 가전/디지털 상품 수: ${products.filter(p => p.isElectronic).length}개`);
         console.log(`- 초특가 상품 수: ${products.filter(p => p.isSuperDeal).length}개`);
         console.log(`- 로켓배송 상품 수: ${products.filter(p => p.isRocket).length}개`);
-        
+
         return products;
     }
 
-    parseProductElement($element, electronicProductIds) {
+    parseProductElement($element, $, electronicProductIds) {
         try {
-            // cheerio 인스턴스 가져오기
-            const $ = $element.constructor;
-            
-            // 상품 링크 찾기
-            const linkElement = $element.find('a').first();
-            if (linkElement.length === 0) return null;
+            const href = ($element.attr('href') || '').replace(/&amp;/g, '&');
 
-            let href = linkElement.attr('href') || '';
-            href = href.replace(/&amp;/g, '&');
-
-            // 상품 ID 추출 - 새 형식: /product/{hash}/ 또는 구 형식: product_id=X&item_id=Y
-            let fullId = null;
-
-            const newUrlMatch = href.match(/\/product\/([A-Za-z0-9_-]+)\/?/);
-            const oldUrlMatch = href.match(/product_id=(\d+)&item_id=(\d+)/);
-
-            if (newUrlMatch) {
-                fullId = newUrlMatch[1];
-            } else if (oldUrlMatch) {
-                fullId = `${oldUrlMatch[1]}_${oldUrlMatch[2]}`;
-            }
-
+            // 상품 ID 추출
+            const fullId = this.extractProductIdFromHref(href);
             if (!fullId) return null;
-            
-            // 가격 추출
-            const price = this.extractPrice($element);
-            if (price === 0) return null;
-            
+
             // 상품명 추출
-            const title = this.extractTitle($element);
+            const title = this.extractTitle($element, $);
             if (!title) return null;
-            
+
+            // 가격 추출
+            const price = this.extractPrice($element, $);
+            if (price === 0) return null;
+
             // 할인율 추출
-            const discountRate = this.extractDiscountRate($element);
-            
+            const discountRate = this.extractDiscountRate($element, $);
+
             // 이미지 URL 추출
-            const imageUrl = this.extractImageUrl($element);
-            
+            const imageUrl = this.extractImageUrl($element, $);
+
             // 상품 URL 생성
             let productUrl;
             if (href.startsWith('http')) {
@@ -270,17 +213,19 @@ class CrawlerService {
             } else {
                 productUrl = `https://fallcent.com/${href}`;
             }
-            
-            // 로켓배송/최저가 뱃지 확인 - cheerio 인스턴스 전달
+
+            // 배송/뱃지 정보 추출
             const badges = this.extractBadges($element, $);
-            
-            
-            // 전자제품 여부 확인 - VB.NET의 IsElectronicProduct 함수 참고
+
+            // 전자제품 여부 확인
             const isElectronic = this.isElectronicProduct(fullId, title, electronicProductIds);
-            
+
+            // 섹션 정보 추출
+            const section = this.extractSection($element, $);
+
             // 키워드 매칭 확인
             const keywordMatch = this.checkKeywordMatch(title);
-            
+
             const product = {
                 id: fullId,
                 title: title,
@@ -292,178 +237,174 @@ class CrawlerService {
                 isSuperDeal: discountRate >= this.SUPER_DISCOUNT_THRESHOLD,
                 isRocket: badges.isRocket,
                 isLowest: badges.isLowest,
+                isTiming: badges.isTiming,
+                deliveryType: badges.deliveryType,
+                section: section,
                 isKeywordMatch: keywordMatch.matched,
                 keywordInfo: keywordMatch.matched ? keywordMatch : null,
                 seen: this.storageService.isProductSeen(fullId),
                 priceChanged: this.checkPriceChange(fullId, price),
                 timestamp: new Date()
             };
-            
-            // 디버깅: 전자제품 정보 로그
+
             if (isElectronic) {
                 console.log(`🔧 전자제품 발견: ${title} (${fullId})`);
             }
-            
+
             // 가격 정보 업데이트
             this.storageService.updateProductPrice(fullId, price);
-            
+
             return product;
-            
+
         } catch (error) {
             console.warn('상품 요소 파싱 중 오류:', error.message);
             return null;
         }
     }
 
-    extractPrice($element) {
+    /**
+     * href에서 상품 ID(해시) 추출
+     */
+    extractProductIdFromHref(href) {
+        if (!href) return null;
+        href = href.replace(/&amp;/g, '&');
+
+        // 새 형식: /product/{hash}/ (쿼리 파라미터 제외)
+        const newUrlMatch = href.match(/\/product\/([A-Za-z0-9_-]{10,})\/?/);
+        if (newUrlMatch) {
+            return newUrlMatch[1];
+        }
+
+        // 구 형식 폴백: product_id=X&item_id=Y
+        const oldUrlMatch = href.match(/product_id=(\d+)&item_id=(\d+)/);
+        if (oldUrlMatch) {
+            return `${oldUrlMatch[1]}_${oldUrlMatch[2]}`;
+        }
+
+        return null;
+    }
+
+    extractPrice($element, $) {
         try {
-            // VB.NET 코드 참고하여 가격 추출 로직 개선
-            let priceText = '';
-            
-            // 1차: white-space: nowrap 스타일을 가진 요소
-            const priceElement1 = $element.find('div[style*="white-space: nowrap"]');
-            if (priceElement1.length > 0) {
-                priceText = priceElement1.text().trim();
-            }
-            
-            // 2차: font-weight: 700 스타일을 가진 요소
-            if (!priceText) {
-                const priceElement2 = $element.find('div[style*="font-weight: 700"]');
-                if (priceElement2.length > 0) {
-                    priceText = priceElement2.text().trim();
-                }
-            }
-            
-            // 3차: 가격 패턴이 있는 모든 div 검색
-            if (!priceText) {
-                $element.find('div').each((i, el) => {
-                    const text = $(el).text().trim();
-                    // 원이 포함되고 숫자가 있으며, 할인율이 아닌 것
-                    if (text.includes('원') && /[\d,]+/.test(text) && !text.includes('%')) {
-                        priceText = text;
-                        return false; // break
-                    }
-                });
-            }
-            
-            if (priceText) {
-                // VB.NET처럼 정교한 가격 추출
-                // 먼저 할인율 패턴 제거
-                let cleanPriceText = priceText.replace(/\d+%\s*(할인|OFF|DC)/gi, '');
-                
-                // 원 단위 가격 추출 - VB.NET의 priceMatch와 동일한 로직
-                const priceMatch = cleanPriceText.match(/([\d,]+)\s*원/);
+            // 새 구조: <span class="text-base font-bold">X,XXX원</span>
+            const priceSpan = $element.find('span.text-base.font-bold');
+            if (priceSpan.length > 0) {
+                const priceText = priceSpan.first().text().trim();
+                const priceMatch = priceText.match(/([\d,]+)\s*원/);
                 if (priceMatch) {
                     const price = parseInt(priceMatch[1].replace(/,/g, ''));
-                    // VB.NET처럼 최소 가격 검증 (100원 이상)
-                    if (price >= 100 && price <= 50000000) { // 최대 5천만원까지 유효
-                        return price;
-                    }
-                }
-                
-                // 원이 없는 경우 숫자만 추출 (단, 큰 숫자만)
-                const numberOnlyMatch = cleanPriceText.match(/([\d,]+)/);
-                if (numberOnlyMatch) {
-                    const price = parseInt(numberOnlyMatch[1].replace(/,/g, ''));
-                    // VB.NET처럼 유효한 가격 범위 검증
-                    if (price >= 1000 && price <= 50000000) {
+                    if (price >= 100 && price <= 50000000) {
                         return price;
                     }
                 }
             }
-            
-            return 0;
+
+            // 폴백: "원"이 포함된 span/div 검색
+            let foundPrice = 0;
+            $element.find('span, div').each((i, el) => {
+                const text = $(el).text().trim();
+                if (text.includes('원') && /[\d,]+/.test(text) && !text.includes('%')) {
+                    const match = text.match(/([\d,]+)\s*원/);
+                    if (match) {
+                        const price = parseInt(match[1].replace(/,/g, ''));
+                        if (price >= 100 && price <= 50000000) {
+                            foundPrice = price;
+                            return false;
+                        }
+                    }
+                }
+            });
+
+            return foundPrice;
         } catch (error) {
             console.warn('가격 추출 중 오류:', error.message);
             return 0;
         }
     }
 
-    extractTitle($element) {
+    extractTitle($element, $) {
         try {
-            // 상품명 추출
-            const titleElement = $element.find('.another_item_name');
-            if (titleElement.length > 0) {
-                let title = titleElement.text().trim();
-                // [쿠팡] 텍스트 제거 및 공백 정규화
+            // 새 구조: <p class="mt-1 text-sm leading-snug line-clamp-2">상품명</p>
+            const titleP = $element.find('p.line-clamp-2');
+            if (titleP.length > 0) {
+                let title = titleP.first().text().trim();
                 title = title.replace(/\[쿠팡\]/g, '');
                 title = title.replace(/\s+/g, ' ').trim();
-                return title;
+                if (title) return title;
             }
-            
-            // 대체 방법: img alt 속성
+
+            // 폴백: img alt 속성
             const imgElement = $element.find('img').first();
             if (imgElement.length > 0) {
                 let alt = imgElement.attr('alt') || '';
-                // '상품의 현재 가격은' 부분 제거
-                const altMatch = alt.match(/(.+)(?:이라는 상품의 현재 가격은)/);
-                if (altMatch) {
-                    return altMatch[1].trim();
+                if (alt) {
+                    alt = alt.replace(/\[쿠팡\]/g, '').replace(/\s+/g, ' ').trim();
+                    return alt;
                 }
-                return alt.trim();
             }
-            
+
             return '';
         } catch (error) {
             return '';
         }
     }
 
-    extractDiscountRate($element) {
+    extractDiscountRate($element, $) {
         try {
-            // VB.NET 로직과 동일하게 할인율 추출
-            let discountText = '';
-            
-            // 1차: color: #F56666 스타일
-            const discountElement1 = $element.find('div[style*="color: #F56666"], div[style*="color:#F56666"]');
-            if (discountElement1.length > 0) {
-                discountText = discountElement1.text().trim();
-            }
-            
-            // 2차: background-color: #FFE2E2 스타일
-            if (!discountText) {
-                const discountElement2 = $element.find('div[style*="background-color: #FFE2E2"], div[style*="background-color:#FFE2E2"]');
-                if (discountElement2.length > 0) {
-                    discountText = discountElement2.text().trim();
-                }
-            }
-            
-            // 3차: % 기호가 있는 div 검색
-            if (!discountText) {
-                $element.find('div').each((i, el) => {
-                    const text = $(el).text().trim();
-                    if (text.includes('%') && /\d+%/.test(text)) {
-                        discountText = text;
-                        return false; // break
-                    }
-                });
-            }
-            
-            if (discountText) {
-                // VB.NET처럼 할인율 숫자만 추출
+            // 새 구조: <span class="... text-price-down">▼ X%</span>
+            const discountSpan = $element.find('.text-price-down, [class*="text-price-down"]');
+            if (discountSpan.length > 0) {
+                const discountText = discountSpan.first().text().trim();
                 const discountMatch = discountText.match(/(\d+)%/);
                 if (discountMatch) {
                     const discount = parseInt(discountMatch[1]);
-                    // 유효한 할인율 범위 (1~99%)
                     if (discount >= 1 && discount <= 99) {
                         return discount;
                     }
                 }
             }
-            
-            return 0;
+
+            // 폴백: % 기호가 있는 span 검색
+            let foundDiscount = 0;
+            $element.find('span').each((i, el) => {
+                const text = $(el).text().trim();
+                if (text.includes('%') && /\d+%/.test(text)) {
+                    const match = text.match(/(\d+)%/);
+                    if (match) {
+                        const discount = parseInt(match[1]);
+                        if (discount >= 1 && discount <= 99) {
+                            foundDiscount = discount;
+                            return false;
+                        }
+                    }
+                }
+            });
+
+            return foundDiscount;
         } catch (error) {
             console.warn('할인율 추출 중 오류:', error.message);
             return 0;
         }
     }
 
-    extractImageUrl($element) {
+    extractImageUrl($element, $) {
         try {
-            const imgElement = $element.find('img').first();
+            // 상품 이미지: <img class="... aspect-square ...">
+            const imgElement = $element.find('img.aspect-square, img[loading="lazy"]').first();
             if (imgElement.length > 0) {
                 return imgElement.attr('src') || '';
             }
+
+            // 폴백: 첫 번째 img
+            const firstImg = $element.find('img').first();
+            if (firstImg.length > 0) {
+                const src = firstImg.attr('src') || '';
+                // 배지 이미지 제외 (badge/ 경로)
+                if (!src.includes('/badge/')) {
+                    return src;
+                }
+            }
+
             return '';
         } catch (error) {
             return '';
@@ -473,105 +414,125 @@ class CrawlerService {
     extractBadges($element, $) {
         const badges = {
             isRocket: false,
-            isLowest: false
+            isLowest: false,
+            isTiming: false,
+            deliveryType: null
         };
-        
+
         try {
-            // 1. img 태그의 alt 속성 확인 - 더 안전한 방식
-            const images = $element.find('img');
-            for (let i = 0; i < images.length; i++) {
-                const img = images.eq(i);
-                const alt = img.attr('alt') || '';
-                const src = img.attr('src') || '';
-                const title = img.attr('title') || '';
-                
-                
-                // 로켓배송 키워드 확인 - web_rocket_icon 추가
-                if (alt.includes('로켓배송') || 
-                    alt.includes('로켓') ||
-                    src.includes('rocket') || 
-                    src.includes('web_rocket_icon') ||
-                    src.includes('로켓') ||
-                    src.includes('delivery') ||
-                    alt.toLowerCase().includes('rocket')) {
+            // 1. 배송 타입 확인 (badge 이미지 기반)
+            const badgeImgs = $element.find('img[src*="/badge/"]');
+            badgeImgs.each((i, img) => {
+                const src = $(img).attr('src') || '';
+
+                if (src.includes('rocket_1.svg')) {
                     badges.isRocket = true;
+                    badges.deliveryType = '로켓배송';
+                } else if (src.includes('rocket_2.svg')) {
+                    badges.isRocket = true;
+                    badges.deliveryType = '판매자로켓';
+                } else if (src.includes('hammer_and_wrench.svg')) {
+                    badges.isRocket = true;
+                    badges.deliveryType = '로켓설치';
+                } else if (src.includes('globe_with_meridians.svg')) {
+                    badges.isRocket = true;
+                    badges.deliveryType = '로켓직구';
                 }
-                
-                // 최저가 키워드 확인 - web_lowest_icon 추가
-                if (alt.includes('최저가') || 
-                    alt.includes('lowest') || 
-                    src.includes('lowest') ||
-                    src.includes('web_lowest_icon')) {
-                    badges.isLowest = true;
-                }
+            });
+
+            // 2. 배송 텍스트로도 확인 (폴백)
+            if (!badges.isRocket) {
+                const deliveryTexts = $element.find('span.text-xs.font-bold');
+                deliveryTexts.each((i, el) => {
+                    const text = $(el).text().trim();
+                    if (text.includes('로켓배송')) {
+                        badges.isRocket = true;
+                        badges.deliveryType = '로켓배송';
+                    } else if (text.includes('판매자로켓')) {
+                        badges.isRocket = true;
+                        badges.deliveryType = '판매자로켓';
+                    } else if (text.includes('로켓설치')) {
+                        badges.isRocket = true;
+                        badges.deliveryType = '로켓설치';
+                    } else if (text.includes('로켓직구')) {
+                        badges.isRocket = true;
+                        badges.deliveryType = '로켓직구';
+                    }
+                });
             }
-            
-            // 2. 전체 텍스트 확인
-            const elementText = $element.text();
-            if (elementText.includes('로켓배송') || 
-                elementText.includes('로켓') ||
-                elementText.includes('rocket') ||
-                elementText.includes('당일배송')) {
-                badges.isRocket = true;
-            }
-            
-            if (elementText.includes('최저가')) {
+
+            // 3. 역대최저가 뱃지 확인
+            const badgeSpans = $element.find('span.bg-price-down');
+            if (badgeSpans.length > 0) {
                 badges.isLowest = true;
             }
-            
-            // 3. CSS 클래스 확인
-            const classNames = $element.attr('class') || '';
-            if (classNames.includes('rocket') || 
-                classNames.includes('로켓') || 
-                classNames.includes('delivery')) {
-                badges.isRocket = true;
-                console.log(`🚀 로켓배송 클래스 발견: "${classNames}"`);
+
+            // 폴백: 텍스트로 역대최저가 확인
+            if (!badges.isLowest) {
+                $element.find('span').each((i, el) => {
+                    const text = $(el).text().trim();
+                    if (text === '역대' || text === '역대최저가') {
+                        badges.isLowest = true;
+                        return false;
+                    }
+                });
             }
-            
-            // 4. 개별 요소들 확인 - 더 안전한 방식
-            const spans = $element.find('span, div, small, p');
-            for (let i = 0; i < spans.length; i++) {
-                const element = spans.eq(i);
-                const text = element.text().trim();
-                const lowerText = text.toLowerCase();
-                
-                if ((text.includes('로켓배송') || 
-                     text.includes('로켓') ||
-                     lowerText.includes('rocket') ||
-                     text.includes('당일배송') ||
-                     text.includes('빠른배송')) && 
-                    text.length < 30) {
-                    badges.isRocket = true;
-                    console.log(`🚀 로켓배송 요소 발견: "${text}"`);
-                    break;
-                }
+
+            // 4. 구매타이밍 뱃지 확인
+            const timingSpans = $element.find('span.bg-primary-light');
+            if (timingSpans.length > 0) {
+                badges.isTiming = true;
             }
-            
-            // 5. 디버깅: 로켓배송 미감지시 HTML 구조 출력
-            if (!badges.isRocket) {
-                const htmlSnippet = $element.html();
-                if (htmlSnippet) {
-                    console.log(`🔍 로켓배송 미감지 - HTML:`, htmlSnippet.substring(0, 200) + '...');
-                }
-            }
-            
+
         } catch (error) {
             console.warn('뱃지 추출 중 오류:', error.message);
         }
-        
+
         return badges;
+    }
+
+    /**
+     * 상품이 속한 섹션 정보 추출
+     */
+    extractSection($element, $) {
+        try {
+            // 부모 요소를 거슬러 올라가며 섹션 제목 찾기
+            let parent = $element.parent();
+            for (let level = 0; level < 10; level++) {
+                if (parent.length === 0) break;
+
+                // data-category-group 속성 확인 (카테고리별 급락한 상품 섹션)
+                const categoryGroup = parent.attr('data-category-group');
+                if (categoryGroup) {
+                    return { name: '카테고리별 급락한 상품', category: categoryGroup };
+                }
+
+                // 이전 형제 요소에서 h2 제목 확인
+                const prevSibling = parent.prev();
+                const h2 = prevSibling.find('h2').first();
+                if (h2.length > 0) {
+                    return { name: h2.text().trim(), category: null };
+                }
+
+                parent = parent.parent();
+            }
+
+            return { name: 'unknown', category: null };
+        } catch (error) {
+            return { name: 'unknown', category: null };
+        }
     }
 
     checkKeywordMatch(title) {
         if (!title) return { matched: false };
-        
+
         const settings = this.storageService.getSettings();
         const keywordCategories = settings.keywords?.categories || [];
         const lowerTitle = title.toLowerCase();
-        
+
         for (const category of keywordCategories) {
             if (!category.enabled) continue;
-            
+
             for (const keyword of category.keywords || []) {
                 if (lowerTitle.includes(keyword.toLowerCase())) {
                     return {
@@ -583,7 +544,7 @@ class CrawlerService {
                 }
             }
         }
-        
+
         return { matched: false };
     }
 
@@ -601,12 +562,17 @@ class CrawlerService {
     }
 
     isElectronicProduct(fullId, title, electronicProductIds) {
-        // 카테고리 기반 확인만 사용 (id="가전/디지털" div 내의 상품만 전자제품으로 분류)
+        // 1. 카테고리 기반 확인 (data-category-group="가전/디지털" 내의 상품)
         if (electronicProductIds.has(fullId)) {
             console.log(`🔧 가전/디지털 카테고리 상품: ${title} (${fullId})`);
             return true;
         }
-        
+
+        // 2. 키워드 기반 폴백 (카테고리 정보가 부족할 경우)
+        if (this.isElectronicByKeyword(title)) {
+            return true;
+        }
+
         return false;
     }
 }
