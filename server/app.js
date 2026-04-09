@@ -4,6 +4,8 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const cron = require('node-cron');
 const path = require('path');
+const crypto = require('crypto');
+const cookieParser = require('cookie-parser');
 
 // 서비스 및 라우터 import
 const CrawlerService = require('./services/crawler-service');
@@ -24,7 +26,9 @@ class FallcentAlert {
         });
         
         this.port = process.env.PORT || 3000;
-        
+        this.AUTH_PASSWORD = '6739266';
+        this.authTokens = new Set(); // 인증된 토큰 저장
+
         // 서비스 초기화
         this.storageService = new StorageService();
         this.crawlerService = new CrawlerService(this.storageService);
@@ -47,17 +51,67 @@ class FallcentAlert {
         this.setupCronJobs();
     }
 
+    getClientIp(req) {
+        return req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip?.replace('::ffff:', '') || req.connection.remoteAddress?.replace('::ffff:', '');
+    }
+
+    isAuthorized(req) {
+        const clientIp = this.getClientIp(req);
+        const ALLOWED_IPS = ['14.38.71.58'];
+        if (ALLOWED_IPS.includes(clientIp) || clientIp === '127.0.0.1' || clientIp === '::1') return true;
+        const token = req.cookies?.auth_token;
+        if (token && this.authTokens.has(token)) return true;
+        return false;
+    }
+
     setupMiddleware() {
+        // 쿠키 파서
+        this.app.use(cookieParser());
+
         // CORS 설정
         this.app.use(cors());
-        
+
         // JSON 파싱
         this.app.use(express.json());
         this.app.use(express.urlencoded({ extended: true }));
-        
+
+        // 로그인 페이지 & 처리 (인증 전에 접근 가능해야 함)
+        this.app.get('/gate', (req, res) => {
+            if (this.isAuthorized(req)) return res.redirect('/');
+            res.send(`<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Access</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f172a;font-family:-apple-system,sans-serif}
+.box{background:#1e293b;padding:2rem;border-radius:12px;width:320px}input{width:100%;padding:12px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#e2e8f0;font-size:16px;margin-bottom:12px;outline:none}
+input:focus{border-color:#3b82f6}button{width:100%;padding:12px;border:none;border-radius:8px;background:#3b82f6;color:#fff;font-size:16px;cursor:pointer}
+button:hover{background:#2563eb}.err{color:#f87171;font-size:14px;text-align:center;margin-bottom:12px;display:none}</style></head>
+<body><div class="box"><form method="POST" action="/gate"><div class="err" id="err">비밀번호가 틀렸습니다</div>
+<input type="password" name="password" placeholder="비밀번호" autofocus>
+<button type="submit">접속</button></form></div>
+<script>if(location.search.includes('fail'))document.getElementById('err').style.display='block'</script></body></html>`);
+        });
+
+        this.app.post('/gate', (req, res) => {
+            if (req.body.password === this.AUTH_PASSWORD) {
+                const token = crypto.randomBytes(32).toString('hex');
+                this.authTokens.add(token);
+                res.cookie('auth_token', token, { httpOnly: true, maxAge: 30 * 24 * 60 * 60 * 1000, sameSite: 'lax' });
+                return res.redirect('/');
+            }
+            res.redirect('/gate?fail=1');
+        });
+
+        // 접근 제한 미들웨어
+        this.app.use((req, res, next) => {
+            if (this.isAuthorized(req)) return next();
+            const clientIp = this.getClientIp(req);
+            console.log(`🚫 차단된 접속: ${clientIp} -> ${req.path}`);
+            res.redirect('/gate');
+        });
+
         // 정적 파일 서빙
         this.app.use(express.static(path.join(__dirname, '../public')));
-        
+
         // 로그 미들웨어
         this.app.use((req, res, next) => {
             console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
@@ -119,6 +173,19 @@ class FallcentAlert {
     }
 
     setupSocketEvents() {
+        // Socket.IO 접근 제한 (IP 또는 인증 토큰)
+        const ALLOWED_IPS = ['14.38.71.58'];
+        this.io.use((socket, next) => {
+            const clientIp = socket.handshake.headers['x-forwarded-for']?.split(',')[0].trim() || socket.handshake.address?.replace('::ffff:', '');
+            if (ALLOWED_IPS.includes(clientIp) || clientIp === '127.0.0.1' || clientIp === '::1') return next();
+            // 쿠키에서 토큰 확인
+            const cookies = socket.handshake.headers.cookie || '';
+            const tokenMatch = cookies.match(/auth_token=([^;]+)/);
+            if (tokenMatch && this.authTokens.has(tokenMatch[1])) return next();
+            console.log(`🚫 소켓 차단: ${clientIp}`);
+            next(new Error('Access Denied'));
+        });
+
         this.io.on('connection', (socket) => {
             console.log(`클라이언트 연결됨: ${socket.id}`);
             

@@ -850,7 +850,7 @@ class FallcentAlertApp {
     }
 
     openProduct(url, productId) {
-        window.open(url, '_blank');
+        window.open(url, '_blank', 'noopener,noreferrer');
         
         // 유저별 읽은 상품으로 표시 (localStorage + 쿠키)
         this.markProductAsSeen(productId);
