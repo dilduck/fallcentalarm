@@ -75,38 +75,40 @@ class FallcentAlert {
         this.app.use(express.json());
         this.app.use(express.urlencoded({ extended: true }));
 
-        // 로그인 페이지 & 처리 (인증 전에 접근 가능해야 함)
-        this.app.get('/gate', (req, res) => {
+        // about 페이지 - 키보드 입력으로 숨겨진 인증
+        this.app.get('/about', (req, res) => {
             if (this.isAuthorized(req)) return res.redirect('/');
             res.send(`<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Access</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f172a;font-family:-apple-system,sans-serif}
-.box{background:#1e293b;padding:2rem;border-radius:12px;width:320px}input{width:100%;padding:12px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#e2e8f0;font-size:16px;margin-bottom:12px;outline:none}
-input:focus{border-color:#3b82f6}button{width:100%;padding:12px;border:none;border-radius:8px;background:#3b82f6;color:#fff;font-size:16px;cursor:pointer}
-button:hover{background:#2563eb}.err{color:#f87171;font-size:14px;text-align:center;margin-bottom:12px;display:none}</style></head>
-<body><div class="box"><form method="POST" action="/gate"><div class="err" id="err">비밀번호가 틀렸습니다</div>
-<input type="password" name="password" placeholder="비밀번호" autofocus>
-<button type="submit">접속</button></form></div>
-<script>if(location.search.includes('fail'))document.getElementById('err').style.display='block'</script></body></html>`);
+<title>About</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f8fafc;font-family:-apple-system,sans-serif;color:#94a3b8}
+p{font-size:14px}</style></head>
+<body><p>This page is not available.</p>
+<script>
+let b='';
+document.addEventListener('keydown',function(e){
+if(e.key>='0'&&e.key<='9'){b+=e.key;if(b.length>10)b=b.slice(-10);
+if(b.includes('6739266')){fetch('/about',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k:b})}).then(r=>{if(r.ok)location.href='/';})}}
+});
+</script></body></html>`);
         });
 
-        this.app.post('/gate', (req, res) => {
-            if (req.body.password === this.AUTH_PASSWORD) {
+        this.app.post('/about', (req, res) => {
+            if (req.body.k && req.body.k.includes(this.AUTH_PASSWORD)) {
                 const token = crypto.randomBytes(32).toString('hex');
                 this.authTokens.add(token);
                 res.cookie('auth_token', token, { httpOnly: true, maxAge: 30 * 24 * 60 * 60 * 1000, sameSite: 'lax' });
-                return res.redirect('/');
+                return res.json({ ok: true });
             }
-            res.redirect('/gate?fail=1');
+            res.status(404).send('Not Found');
         });
 
-        // 접근 제한 미들웨어
+        // 접근 제한 미들웨어 - 비인가자에게는 404만 표시
         this.app.use((req, res, next) => {
             if (this.isAuthorized(req)) return next();
             const clientIp = this.getClientIp(req);
             console.log(`🚫 차단된 접속: ${clientIp} -> ${req.path}`);
-            res.redirect('/gate');
+            res.status(404).send('Not Found');
         });
 
         // 정적 파일 서빙
