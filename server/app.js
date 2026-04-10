@@ -77,7 +77,6 @@ class FallcentAlert {
 
         // about 페이지 - 키보드 입력으로 숨겨진 인증
         this.app.get('/about', (req, res) => {
-            if (this.isAuthorized(req)) return res.redirect('/');
             res.send(`<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>About</title>
